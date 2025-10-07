@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-    {name = "Gym MCP Server Contributors"}
+    {name = "Haggai Shachar"}
 ]
 keywords = ["gymnasium", "gym", "mcp", "model-context-protocol", "reinforcement-learning", "ai", "agents"]
 classifiers = [
@@ -50,9 +50,9 @@ examples = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/gym-mcp-server"
-Repository = "https://github.com/your-username/gym-mcp-server"
-Issues = "https://github.com/your-username/gym-mcp-server/issues"
+Homepage = "https://github.com/haggaishachar/gym-mcp-server"
+Repository = "https://github.com/haggaishachar/gym-mcp-server"
+Issues = "https://github.com/haggaishachar/gym-mcp-server/issues"
 
 [project.scripts]
 gym-mcp-server = "gym_mcp_server.server:main"

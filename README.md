@@ -49,7 +49,7 @@ Expose any Gymnasium environment as an MCP (Model Context Protocol) server, auto
 
 ```bash
 # 1. Clone and setup
-git clone <repository-url> && cd gym-mcp-server
+git clone https://github.com/haggaishachar/gym-mcp-server.git && cd gym-mcp-server
 make install-dev
 
 # 2. Run interactive demo
@@ -120,7 +120,7 @@ python --version  # Should show 3.12 or higher
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/haggaishachar/gym-mcp-server.git
 cd gym-mcp-server
 
 # Install with dependencies (using Makefile)
@@ -134,7 +134,7 @@ make install-dev
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/haggaishachar/gym-mcp-server.git
 cd gym-mcp-server
 
 # Install in development mode
@@ -389,7 +389,7 @@ adapter.call_tool("close_env")
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/haggaishachar/gym-mcp-server.git
 cd gym-mcp-server
 
 # Install with development dependencies
@@ -659,7 +659,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/your-username/gym-mcp-server/issues) page
+1. Check the [Issues](https://github.com/haggaishachar/gym-mcp-server/issues) page
 2. Create a new issue with detailed information
 3. Join our community discussions
 
