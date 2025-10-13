@@ -30,6 +30,8 @@ dependencies = [
     "gymnasium>=0.29.0",
     "numpy>=1.21.0",
     "pillow>=8.0.0",
+    "mcp>=1.0.0",
+    "pygame>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +41,7 @@ dev = [
     "black>=22.0.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
+    "openai-agents>=0.1.0",
 ]
 docs = [
     "sphinx>=5.0.0",

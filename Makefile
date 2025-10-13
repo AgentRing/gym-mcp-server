@@ -1,57 +1,30 @@
-.PHONY: help install install-dev test test-unit test-integration test-verbose test-coverage lint format typecheck check run-demo run-cartpole run-mcp-client clean clean-all
+.PHONY: help install test lint format format-check typecheck check run-demo run-server run-agent-example
 
 # Default target
 help:
 	@echo "Available targets:"
 	@echo "  make install          - Install the package with uv"
-	@echo "  make install-dev      - Install with development dependencies"
 	@echo "  make test             - Run all tests with coverage"
-	@echo "  make test-unit        - Run only unit tests (skip integration)"
-	@echo "  make test-integration - Run only integration tests"
-	@echo "  make test-verbose     - Run tests with verbose output"
-	@echo "  make test-coverage    - Run tests and open coverage report"
 	@echo "  make lint             - Run linting with flake8"
 	@echo "  make format           - Format code with black"
 	@echo "  make format-check     - Check code formatting without modifying"
 	@echo "  make typecheck        - Run type checking with mypy"
 	@echo "  make check            - Run all checks (format, lint, typecheck, test)"
-	@echo "  make run-demo         - Run CartPole in interactive mode"
-	@echo "  make run-cartpole     - Run CartPole example"
-	@echo "  make run-mcp-client   - Run MCP client example"
-	@echo "  make clean            - Remove build artifacts and cache"
-	@echo "  make clean-all        - Remove all generated files including htmlcov"
+	@echo ""
+	@echo "MCP Server (stdio transport):"
+	@echo "  make run-server       - Run MCP server (stdio transport)"
+	@echo "  make run-demo         - Run CartPole demo via stdio transport (random actions)"
+	@echo "  make run-agent-example - Run OpenAI Agents SDK example (requires OPENAI_API_KEY)"
 
 # Installation targets
 install:
 	@echo "📦 Installing gym-mcp-server..."
 	uv pip install -e .
 
-install-dev:
-	@echo "📦 Installing gym-mcp-server with development dependencies..."
-	uv pip install -e ".[dev,examples]"
-
 # Testing targets
 test:
 	@echo "🧪 Running tests with coverage..."
 	uv run pytest
-
-test-unit:
-	@echo "🧪 Running unit tests only..."
-	uv run pytest -m "not integration"
-
-test-integration:
-	@echo "🧪 Running integration tests only..."
-	uv run pytest -m integration
-
-test-verbose:
-	@echo "🧪 Running tests with verbose output..."
-	uv run pytest -v
-
-test-coverage:
-	@echo "🧪 Running tests and generating coverage report..."
-	uv run pytest
-	@echo "📊 Opening coverage report..."
-	xdg-open htmlcov/index.html 2>/dev/null || open htmlcov/index.html 2>/dev/null || echo "Coverage report generated at htmlcov/index.html"
 
 # Code quality targets
 lint:
@@ -73,33 +46,24 @@ typecheck:
 check: format-check lint typecheck test
 	@echo "✅ All checks passed!"
 
-# Demo and example targets
+# MCP stdio server and example targets
+run-server:
+	@echo "🚀 Starting standalone MCP server with CartPole-v1..."
+	@echo "Note: This runs a standalone server on stdio (for manual testing)."
+	@echo "It waits for input on stdin. Most clients spawn their own server instead."
+	@echo "For a working demo, use 'make run-demo' which spawns its own server."
+	@echo ""
+	uv run python -m gym_mcp_server --env CartPole-v1 --render-mode rgb_array --transport stdio
+
 run-demo:
-	@echo "🎮 Running CartPole in interactive mode..."
-	uv run python -m gym_mcp_server --env CartPole-v1 --interactive
+	@echo "🎮 Running CartPole demo via HTTP transport..."
+	@echo "Note: The client spawns its own server in a background thread. All logs appear below."
+	@echo ""
+	uv run python examples/http_example.py
 
-run-cartpole:
-	@echo "🎮 Running CartPole example..."
-	uv run python examples/run_cartpole.py
-
-run-mcp-client:
-	@echo "🎮 Running MCP client example..."
-	uv run python examples/mcp_client_example.py
-
-# Cleanup targets
-clean:
-	@echo "🧹 Cleaning build artifacts and cache..."
-	rm -rf build/
-	rm -rf dist/
-	rm -rf *.egg-info
-	rm -rf .pytest_cache
-	rm -rf .mypy_cache
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-
-clean-all: clean
-	@echo "🧹 Removing all generated files..."
-	rm -rf htmlcov/
-	rm -rf .coverage
-
+run-agent-example:
+	@echo "🤖 Running OpenAI Agents SDK example..."
+	@echo "Note: Requires OPENAI_API_KEY environment variable to be set."
+	@echo "The AI agent will autonomously control the gym environment."
+	@echo ""
+	uv run python examples/openai_agents_stdio_example.py

@@ -4,7 +4,7 @@ Utility functions for serialization, rendering, and other helper operations.
 
 import base64
 import io
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import numpy as np
 from PIL import Image
 
@@ -89,13 +89,15 @@ def serialize_action(action: Any) -> Any:
     return action
 
 
-def serialize_render_output(render_out: Any, mode: str = "ansi") -> Dict[str, Any]:
+def serialize_render_output(
+    render_out: Any, mode: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Serialize render output to JSON-safe format.
 
     Args:
         render_out: The render output from env.render()
-        mode: The render mode used
+        mode: The render mode used (e.g., rgb_array, human)
 
     Returns:
         Dictionary containing the serialized render output

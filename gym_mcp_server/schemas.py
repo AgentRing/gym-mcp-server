@@ -138,8 +138,7 @@ TOOL_SCHEMAS = {
             "properties": {
                 "mode": {
                     "type": "string",
-                    "description": "Render mode (ansi, rgb_array, human, etc.)",
-                    "default": "ansi",
+                    "description": "Render mode (e.g., rgb_array, human)",
                 }
             },
         },

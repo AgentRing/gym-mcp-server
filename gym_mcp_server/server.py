@@ -4,16 +4,16 @@ Main MCP server implementation for exposing Gymnasium environments as MCP tools.
 
 import gymnasium as gym
 import json
-import argparse
 import logging
-from typing import Any, Dict, Optional
+import threading
+import time
+from typing import Any, Literal, Optional
+from mcp.server.fastmcp import FastMCP
 from .utils import (
     serialize_observation,
-    serialize_action,
     serialize_render_output,
     get_environment_info,
 )
-from .schemas import TOOL_SCHEMAS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,91 +21,205 @@ logger = logging.getLogger(__name__)
 
 
 class GymMCPServer:
-    """
-    MCP server that exposes any Gymnasium environment as MCP tools.
+    """MCP Server for Gymnasium environments.
+
+    This class manages a FastMCP server instance and exposes Gymnasium
+    environment operations as MCP tools.
+
+    Example (blocking):
+        >>> server = GymMCPServer(env_id="CartPole-v1")
+        >>> server.run(transport="stdio")
+
+    Example (non-blocking):
+        >>> server = GymMCPServer(env_id="CartPole-v1", host="localhost", port=8765)
+        >>> server.start()  # Start in background thread
+        >>> # ... do other work ...
+        >>> server.stop()  # Stop the server
     """
 
-    def __init__(self, env_id: str, render_mode: str = "ansi") -> None:
-        """
-        Initialize the MCP server with a Gymnasium environment.
+    def __init__(
+        self,
+        env_id: str,
+        render_mode: Optional[str] = None,
+        **mcp_kwargs: Any,
+    ):
+        """Initialize the Gym MCP Server.
 
         Args:
-            env_id: The Gymnasium environment ID (e.g., "CartPole-v1")
-            render_mode: Default render mode for the environment
+            env_id: The Gymnasium environment ID
+            render_mode: Optional render mode for the environment
+            **mcp_kwargs: Additional FastMCP settings like host, port, etc.
         """
         self.env_id = env_id
         self.render_mode = render_mode
-        self.env: Any = None
-        self._initialize_environment()
+        self._mcp_kwargs = mcp_kwargs
 
-    def _initialize_environment(self) -> None:
-        """Initialize the Gymnasium environment."""
-        try:
-            self.env = gym.make(self.env_id, render_mode=self.render_mode)
-            logger.info(f"Successfully initialized environment: {self.env_id}")
-        except Exception as e:
-            logger.error(f"Failed to initialize environment {self.env_id}: {e}")
-            raise
+        # Create the FastMCP server (private)
+        self._mcp = FastMCP("gym-mcp-server", **mcp_kwargs)
 
-    def _serialize_obs(self, obs: Any) -> Any:
-        """Convert observations to JSON-safe formats."""
-        return serialize_observation(obs)
+        # Initialize the Gymnasium environment
+        logger.info(f"Initializing environment: {env_id}")
+        if render_mode is not None:
+            self.env = gym.make(env_id, render_mode=render_mode)
+        else:
+            self.env = gym.make(env_id)
 
-    def _serialize_action(self, action: Any) -> Any:
-        """Convert actions to JSON-safe formats."""
-        return serialize_action(action)
+        # Threading support for non-blocking mode
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
 
-    def reset_env(self, seed: Optional[int] = None) -> Dict[str, Any]:
+        # Register all tools
+        self._register_tools()
+
+    def _register_tools(self) -> None:
+        """Register all environment tools with the MCP server."""
+        self._mcp.tool()(self.reset_env)
+        self._mcp.tool()(self.step_env)
+        self._mcp.tool()(self.render_env)
+        self._mcp.tool()(self.get_env_info)
+        self._mcp.tool()(self.close_env)
+
+    def run(
+        self,
+        transport: Literal["stdio", "sse", "streamable-http"] = "stdio",
+    ) -> None:
+        """Run the MCP server (blocking).
+
+        Args:
+            transport: Transport type (e.g., "stdio", "streamable-http", "sse")
         """
-        Reset the environment to its initial state.
+        self._mcp.run(transport=transport)
+
+    def _run_in_thread(
+        self,
+        transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http",
+    ) -> None:
+        """Internal method to run server in a thread."""
+        host = self._mcp_kwargs.get("host", "localhost")
+        port = self._mcp_kwargs.get("port", 8765)
+        logger.info(f"Starting MCP server on {host}:{port}")
+
+        try:
+            self._mcp.run(transport=transport)
+        except Exception as e:
+            if not self._stop_event.is_set():
+                logger.error(f"Server error: {e}")
+            else:
+                logger.info("Server stopped gracefully")
+
+    def start(
+        self,
+        transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http",
+    ) -> None:
+        """Start the server in a background thread (non-blocking).
+
+        This allows running the server while continuing to execute other code
+        in the main thread. Useful for testing, embedded applications, or when
+        you need to run server and client in the same Python process.
+
+        Args:
+            transport: Transport type (default: "streamable-http")
+
+        Raises:
+            RuntimeError: If server is already running
+
+        Example:
+            >>> server = GymMCPServer(env_id="CartPole-v1", host="localhost", port=8765)
+            >>> server.start()
+            >>> # Server is now running at http://localhost:8765/mcp
+            >>> server.stop()
+        """
+        if self._thread is not None and self._thread.is_alive():
+            raise RuntimeError("Server already started")
+
+        self._stop_event.clear()
+        self._thread = threading.Thread(
+            target=self._run_in_thread, args=(transport,), daemon=True
+        )
+        self._thread.start()
+
+        # Wait a bit for the server to start up
+        logger.info("Waiting for server to start...")
+        time.sleep(2)
+
+        host = self._mcp_kwargs.get("host", "localhost")
+        port = self._mcp_kwargs.get("port", 8765)
+        logger.info(f"Server should be ready at http://{host}:{port}")
+
+    def stop(self) -> None:
+        """Stop the server thread if running in non-blocking mode.
+
+        Note: FastMCP servers don't have a clean shutdown mechanism.
+        This method sets a stop event and relies on the daemon thread
+        to terminate with the main process.
+        """
+        if self._thread is None:
+            return
+
+        logger.info("Stopping server...")
+        self._stop_event.set()
+
+    def is_alive(self) -> bool:
+        """Check if the server thread is alive.
+
+        Returns:
+            True if the server thread is running, False otherwise
+        """
+        return self._thread is not None and self._thread.is_alive()
+
+    def reset_env(self, seed: Optional[int] = None) -> str:
+        """Reset the environment to its initial state.
 
         Args:
             seed: Random seed for reproducible episodes (optional)
 
         Returns:
-            Dictionary containing initial observation, info, and done status
+            JSON string with initial observation, info, and done status
         """
+        logger.info(f"Resetting environment with seed={seed}")
         try:
             if seed is not None:
                 obs, info = self.env.reset(seed=seed)
             else:
                 obs, info = self.env.reset()
 
-            return {
-                "observation": self._serialize_obs(obs),
+            result = {
+                "observation": serialize_observation(obs),
                 "info": info,
                 "done": False,
                 "success": True,
             }
         except Exception as e:
             logger.error(f"Error resetting environment: {e}")
-            return {
+            result = {
                 "observation": None,
                 "info": {},
                 "done": True,
                 "success": False,
                 "error": str(e),
             }
+        return json.dumps(result, indent=2)
 
-    def step_env(self, action: Any) -> Dict[str, Any]:
-        """
-        Take an action in the environment.
+    def step_env(self, action: Any) -> str:
+        """Take an action in the environment.
 
         Args:
             action: The action to take in the environment
 
         Returns:
-            Dictionary containing next observation, reward, done status, and info
+            JSON string with next observation, reward, done status, and info
         """
+        logger.info(f"Taking step with action={action}")
         try:
             # Convert action to appropriate format if needed
+            act: Any = action
             if isinstance(action, (list, tuple)) and len(action) == 1:
-                action = action[0]
+                act = action[0]
 
-            obs, reward, done, truncated, info = self.env.step(action)
+            obs, reward, done, truncated, info = self.env.step(act)
 
-            return {
-                "observation": self._serialize_obs(obs),
+            result = {
+                "observation": serialize_observation(obs),
                 "reward": float(reward),
                 "done": bool(done or truncated),
                 "truncated": bool(truncated),
@@ -114,7 +228,7 @@ class GymMCPServer:
             }
         except Exception as e:
             logger.error(f"Error taking step: {e}")
-            return {
+            result = {
                 "observation": None,
                 "reward": 0.0,
                 "done": True,
@@ -123,207 +237,58 @@ class GymMCPServer:
                 "success": False,
                 "error": str(e),
             }
+        return json.dumps(result, indent=2)
 
-    def render_env(self, mode: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Render the current state of the environment.
+    def render_env(self, mode: Optional[str] = None) -> str:
+        """Render the current state of the environment.
 
         Args:
-            mode: Render mode (ansi, rgb_array, human, etc.)
+            mode: Render mode (e.g., rgb_array, human)
 
         Returns:
-            Dictionary containing the rendered output
+            JSON string with rendered output
         """
+        logger.info(f"Rendering environment with mode={mode}")
         try:
-            if mode is None:
-                mode = self.render_mode
-
-            render_out = self.env.render()
-            result = serialize_render_output(render_out, mode)
+            render_out: Any = self.env.render()
+            result = serialize_render_output(render_out, mode or self.render_mode)
             result["success"] = True
-            return result
         except Exception as e:
             logger.error(f"Error rendering environment: {e}")
-            return {
+            result = {
                 "render": None,
                 "mode": mode or self.render_mode,
                 "type": "error",
                 "success": False,
                 "error": str(e),
             }
+        return json.dumps(result, indent=2)
 
-    def close_env(self) -> Dict[str, Any]:
-        """
-        Close the environment and free resources.
-
-        Returns:
-            Dictionary containing the close status
-        """
-        try:
-            self.env.close()
-            return {"status": "closed", "success": True}
-        except Exception as e:
-            logger.error(f"Error closing environment: {e}")
-            return {"status": "error", "success": False, "error": str(e)}
-
-    def get_env_info(self) -> Dict[str, Any]:
-        """
-        Get information about the environment.
+    def get_env_info(self) -> str:
+        """Get information about the environment.
 
         Returns:
-            Dictionary containing environment metadata
+            JSON string with environment metadata
         """
+        logger.info("Getting environment info")
         try:
-            return {"env_info": get_environment_info(self.env), "success": True}
+            result = {"env_info": get_environment_info(self.env), "success": True}
         except Exception as e:
             logger.error(f"Error getting environment info: {e}")
-            return {"env_info": {}, "success": False, "error": str(e)}
+            result = {"env_info": {}, "success": False, "error": str(e)}
+        return json.dumps(result, indent=2)
 
-    def get_available_tools(self) -> Dict[str, Any]:
-        """
-        Get information about available MCP tools.
-
-        Returns:
-            Dictionary containing tool schemas
-        """
-        return {"tools": TOOL_SCHEMAS, "success": True}
-
-
-class GymMCPAdapter:
-    """
-    Adapter class that provides a simple interface for MCP clients.
-    """
-
-    def __init__(self, env_id: str, render_mode: str = "ansi") -> None:
-        """
-        Initialize the adapter with a Gymnasium environment.
-
-        Args:
-            env_id: The Gymnasium environment ID
-            render_mode: Default render mode for the environment
-        """
-        self.server = GymMCPServer(env_id, render_mode)
-        self.env_id = env_id
-
-    def call_tool(self, tool_name: str, **kwargs: Any) -> Dict[str, Any]:
-        """
-        Call a specific tool by name.
-
-        Args:
-            tool_name: Name of the tool to call
-            **kwargs: Arguments for the tool
+    def close_env(self) -> str:
+        """Close the environment and free resources.
 
         Returns:
-            Result of the tool call
+            JSON string with close status
         """
-        if tool_name == "reset_env":
-            return self.server.reset_env(**kwargs)
-        elif tool_name == "step_env":
-            return self.server.step_env(**kwargs)
-        elif tool_name == "render_env":
-            return self.server.render_env(**kwargs)
-        elif tool_name == "close_env":
-            return self.server.close_env()
-        elif tool_name == "get_env_info":
-            return self.server.get_env_info()
-        elif tool_name == "get_available_tools":
-            return self.server.get_available_tools()
-        else:
-            return {"success": False, "error": f"Unknown tool: {tool_name}"}
-
-    def run_interactive(self) -> None:
-        """
-        Run an interactive session with the environment.
-        """
-        print(f"Running interactive Gym MCP adapter for {self.env_id}")
-        print("Available commands:")
-        print("  reset [seed] - Reset the environment")
-        print("  step <action> - Take an action")
-        print("  render [mode] - Render the environment")
-        print("  info - Get environment information")
-        print("  close - Close the environment")
-        print("  quit - Exit the program")
-        print()
-
-        while True:
-            try:
-                command = input("> ").strip().split()
-                if not command:
-                    continue
-
-                cmd = command[0].lower()
-
-                if cmd == "quit":
-                    break
-                elif cmd == "reset":
-                    seed = int(command[1]) if len(command) > 1 else None
-                    result = self.call_tool("reset_env", seed=seed)
-                    print(f"Reset result: {json.dumps(result, indent=2)}")
-                elif cmd == "step":
-                    if len(command) < 2:
-                        print("Usage: step <action>")
-                        continue
-                    action = int(command[1])
-                    result = self.call_tool("step_env", action=action)
-                    print(f"Step result: {json.dumps(result, indent=2)}")
-                elif cmd == "render":
-                    mode = command[1] if len(command) > 1 else None
-                    result = self.call_tool("render_env", mode=mode)
-                    print(f"Render result: {json.dumps(result, indent=2)}")
-                elif cmd == "info":
-                    result = self.call_tool("get_env_info")
-                    print(f"Environment info: {json.dumps(result, indent=2)}")
-                elif cmd == "close":
-                    result = self.call_tool("close_env")
-                    print(f"Close result: {json.dumps(result, indent=2)}")
-                else:
-                    print(f"Unknown command: {cmd}")
-
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                break
-            except Exception as e:
-                print(f"Error: {e}")
-
-
-def main() -> int:
-    """Main entry point for the MCP server."""
-    parser = argparse.ArgumentParser(
-        description="Run a Gymnasium environment as an MCP server."
-    )
-    parser.add_argument(
-        "--env",
-        type=str,
-        required=True,
-        help="Gymnasium environment ID (e.g., CartPole-v1)",
-    )
-    parser.add_argument(
-        "--render-mode", type=str, default="ansi", help="Default render mode"
-    )
-    parser.add_argument(
-        "--interactive", action="store_true", help="Run in interactive mode"
-    )
-    parser.add_argument("--host", type=str, default="localhost", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
-
-    args = parser.parse_args()
-
-    try:
-        adapter = GymMCPAdapter(args.env, args.render_mode)
-
-        if args.interactive:
-            adapter.run_interactive()
-        else:
-            print(f"Gym MCP adapter for {args.env} is ready.")
-            print(f"Connect to ws://{args.host}:{args.port}")
-            print("Use --interactive flag for interactive mode.")
-
-    except Exception as e:
-        logger.error(f"Failed to start MCP server: {e}")
-        return 1
-
-    return 0
-
-
-if __name__ == "__main__":
-    exit(main())
+        logger.info("Closing environment")
+        try:
+            self.env.close()
+            result = {"status": "closed", "success": True}
+        except Exception as e:
+            logger.error(f"Error closing environment: {e}")
+            result = {"status": "error", "success": False, "error": str(e)}
+        return json.dumps(result, indent=2)

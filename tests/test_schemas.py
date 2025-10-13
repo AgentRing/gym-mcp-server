@@ -259,7 +259,7 @@ class TestToolSchemas:
         assert "mode" in properties
         assert properties["mode"]["type"] == "string"
         assert "description" in properties["mode"]
-        assert "default" in properties["mode"]
+        # Note: 'default' is not required in the schema as mode can be None
 
     def test_close_env_tool_schema(self):
         """Test close_env tool schema."""

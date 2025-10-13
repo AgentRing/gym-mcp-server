@@ -2,7 +2,7 @@
 Tests for gym_mcp_server.__init__ module.
 """
 
-from gym_mcp_server import GymMCPServer, GymMCPAdapter, __version__
+from gym_mcp_server import GymMCPServer, __version__
 
 
 class TestInitModule:
@@ -15,7 +15,6 @@ class TestInitModule:
     def test_imports(self):
         """Test that main classes can be imported."""
         assert GymMCPServer is not None
-        assert GymMCPAdapter is not None
 
     def test_all_exports(self):
         """Test that __all__ contains expected exports."""
@@ -23,8 +22,7 @@ class TestInitModule:
 
         assert hasattr(gym_mcp_server, "__all__")
         assert "GymMCPServer" in gym_mcp_server.__all__
-        assert "GymMCPAdapter" in gym_mcp_server.__all__
-        assert len(gym_mcp_server.__all__) == 2
+        assert len(gym_mcp_server.__all__) == 1
 
     def test_module_docstring(self):
         """Test that module has proper docstring."""
