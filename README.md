@@ -2,7 +2,7 @@
 
 Expose any Gymnasium environment as an MCP (Model Context Protocol) server, automatically converting the Gym API (`reset`, `step`, `render`) into MCP tools that any agent can call via standard JSON interfaces.
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Test Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)](htmlcov/index.html)
 
@@ -20,7 +20,7 @@ Expose any Gymnasium environment as an MCP (Model Context Protocol) server, auto
 pip install gym-mcp-server
 ```
 
-**Requirements:** Python 3.12+
+**Requirements:** Python 3.10+
 
 ## Quick Start
 
@@ -167,10 +167,10 @@ pip install gymnasium[mujoco]  # For MuJoCo environments
 
 ### Python Version
 
-Ensure you're using Python 3.12+:
+Ensure you're using Python 3.10+:
 
 ```bash
-python --version  # Should show 3.12 or higher
+python --version  # Should show 3.10 or higher
 ```
 
 ## Development

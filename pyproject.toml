@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gym-mcp-server"
-version = "0.1.0"
+version = "0.2.0"
 description = "Expose any Gymnasium environment as an MCP server"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Haggai Shachar"}
@@ -20,6 +20,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -41,21 +43,16 @@ dev = [
     "black>=22.0.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
-    "openai-agents>=0.1.0",
 ]
 docs = [
     "sphinx>=5.0.0",
     "sphinx-rtd-theme>=1.0.0",
 ]
-examples = [
-    "matplotlib>=3.5.0",
-    "jupyter>=1.0.0",
-]
 
 [project.urls]
-Homepage = "https://github.com/haggaishachar/gym-mcp-server"
-Repository = "https://github.com/haggaishachar/gym-mcp-server"
-Issues = "https://github.com/haggaishachar/gym-mcp-server/issues"
+Homepage = "https://github.com/AgentRing/gym-mcp-server"
+Repository = "https://github.com/AgentRing/gym-mcp-server"
+Issues = "https://github.com/AgentRing/gym-mcp-server/issues"
 
 [project.scripts]
 gym-mcp-server = "gym_mcp_server.server:main"
@@ -65,7 +62,7 @@ packages = ["gym_mcp_server"]
 
 [tool.black]
 line-length = 88
-target-version = ['py312']
+target-version = ['py310']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -82,7 +79,7 @@ extend-exclude = '''
 '''
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
