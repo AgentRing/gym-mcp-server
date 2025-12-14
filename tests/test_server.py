@@ -17,6 +17,7 @@ class TestMainFunction:
         mock_parser_class.return_value = mock_parser
         mock_args = Mock()
         mock_args.env = "CartPole-v1"
+        mock_args.entry_point = None  # No entry point, use env directly
         mock_args.render_mode = "rgb_array"
         mock_args.transport = "stdio"
         mock_args.host = "localhost"
@@ -45,6 +46,7 @@ class TestMainFunction:
         mock_parser_class.return_value = mock_parser
         mock_args = Mock()
         mock_args.env = "CartPole-v1"
+        mock_args.entry_point = None  # No entry point, use env directly
         mock_args.render_mode = "ansi"
         mock_args.transport = "stdio"
         mock_args.host = "localhost"

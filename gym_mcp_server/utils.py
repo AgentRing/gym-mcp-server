@@ -3,10 +3,17 @@ Utility functions for serialization, rendering, and other helper operations.
 """
 
 import base64
+import hashlib
+import importlib
 import io
-from typing import Any, Dict, Optional
+import logging
+from typing import Any, Dict, Optional, Tuple
+import gymnasium as gym
+from gymnasium.envs.registration import register
 import numpy as np
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 
 def serialize_observation(obs: Any) -> Any:
@@ -193,3 +200,100 @@ def get_environment_info(env: Any) -> Dict[str, Any]:
             pass  # Skip if conversion fails (e.g., Mock objects in tests)
 
     return info
+
+
+def parse_entry_point(entry_point: str) -> Tuple[str, str]:
+    """
+    Parse an entry point string into module path and class name.
+
+    Args:
+        entry_point: Entry point in format "module.path:ClassName"
+
+    Returns:
+        Tuple of (module_path, class_name)
+
+    Raises:
+        ValueError: If entry point format is invalid
+    """
+    if ":" not in entry_point:
+        raise ValueError(
+            f"Invalid entry point format: '{entry_point}'. "
+            "Expected format: 'module.path:ClassName'"
+        )
+
+    parts = entry_point.split(":", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(
+            f"Invalid entry point format: '{entry_point}'. "
+            "Expected format: 'module.path:ClassName'"
+        )
+
+    return parts[0], parts[1]
+
+
+def register_env_from_entry_point(
+    entry_point: str,
+    env_id: Optional[str] = None,
+    env_kwargs: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Register a Gymnasium environment from a module:class entry point.
+
+    This allows using any Python class that implements the Gymnasium Env interface
+    as an environment without pre-registering it.
+
+    Args:
+        entry_point: Entry point in format "module.path:ClassName"
+        env_id: Optional environment ID. If not provided, one will be generated.
+        env_kwargs: Optional kwargs to pass to the environment constructor.
+
+    Returns:
+        The registered environment ID
+
+    Raises:
+        ValueError: If entry point format is invalid
+        ImportError: If the module cannot be imported
+        AttributeError: If the class is not found in the module
+
+    Example:
+        >>> env_id = register_env_from_entry_point(
+        ...     "mymodule.envs:MyCustomEnv",
+        ...     env_kwargs={"difficulty": "hard"}
+        ... )
+        >>> env = gym.make(env_id)
+    """
+    module_path, class_name = parse_entry_point(entry_point)
+
+    # Validate that the module and class exist
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as e:
+        raise ImportError(
+            f"Cannot import module '{module_path}' from entry point '{entry_point}': {e}"
+        ) from e
+
+    if not hasattr(module, class_name):
+        raise AttributeError(
+            f"Class '{class_name}' not found in module '{module_path}'"
+        )
+
+    # Generate an environment ID if not provided
+    if env_id is None:
+        # Create a unique ID based on the entry point
+        hash_suffix = hashlib.md5(entry_point.encode()).hexdigest()[:8]
+        env_id = f"{class_name}-dynamic-{hash_suffix}-v0"
+
+    # Check if already registered
+    if env_id in gym.envs.registry:
+        logger.info(f"Environment '{env_id}' already registered, skipping registration")
+        return env_id
+
+    # Register the environment
+    logger.info(f"Registering environment '{env_id}' from entry point '{entry_point}'")
+    register(
+        id=env_id,
+        entry_point=entry_point,
+        kwargs=env_kwargs or {},
+    )
+
+    return env_id
