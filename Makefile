@@ -1,4 +1,4 @@
-.PHONY: help install test lint format typecheck check run-demo run-server
+.PHONY: help install test lint format typecheck check run-demo run-server generate-proto
 
 # Default target
 help:
@@ -9,6 +9,7 @@ help:
 	@echo "  make format           - Format code with black"
 	@echo "  make typecheck        - Run type checking with mypy"
 	@echo "  make check            - Run all checks (format, lint, typecheck, test)"
+	@echo "  make generate-proto   - Generate Python code from proto files"
 	@echo ""
 	@echo "MCP Server (stdio transport):"
 	@echo "  make run-server       - Run MCP server (stdio transport)"
@@ -40,6 +41,11 @@ typecheck:
 
 check: lint typecheck test
 	@echo "✅ All checks passed!"
+
+# Proto generation
+generate-proto:
+	@echo "🔧 Generating Python code from proto files..."
+	uv run python scripts/generate_proto.py
 
 # MCP stdio server and example targets
 run-server:

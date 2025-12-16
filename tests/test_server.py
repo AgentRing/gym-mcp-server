@@ -22,6 +22,10 @@ class TestMainFunction:
         mock_args.transport = "stdio"
         mock_args.host = "localhost"
         mock_args.port = 8000
+        mock_args.http = False  # Not HTTP mode
+        mock_args.grpc = False  # Not gRPC mode
+        mock_args.title = None
+        mock_args.description = None
         mock_parser.parse_args.return_value = mock_args
 
         # Mock the GymMCPServer
@@ -51,6 +55,10 @@ class TestMainFunction:
         mock_args.transport = "stdio"
         mock_args.host = "localhost"
         mock_args.port = 8000
+        mock_args.http = False
+        mock_args.grpc = False
+        mock_args.title = None
+        mock_args.description = None
         mock_parser.parse_args.return_value = mock_args
 
         # Mock GymMCPServer to raise exception

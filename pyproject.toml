@@ -36,6 +36,9 @@ dependencies = [
     "pygame>=2.0.0",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
+    "grpcio>=1.60.0",
+    "protobuf>=4.25.0",
+    "protobuf-to-pydantic>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -45,6 +48,7 @@ dev = [
     "black>=22.0.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
+    "grpcio-tools>=1.60.0",
 ]
 docs = [
     "sphinx>=5.0.0",

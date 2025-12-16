@@ -6,8 +6,7 @@ import sys
 import argparse
 import logging
 from typing import Any, Dict, Optional
-from .server import GymMCPServer
-from .http_server import GymHTTPServer
+from .servers import GymMCPServer, GymHTTPServer, GymGRPCServer
 from .utils import register_env_from_entry_point
 
 # Configure logging
@@ -85,6 +84,12 @@ Examples:
         "Access Swagger UI at http://<host>:<port>/docs",
     )
     parser.add_argument(
+        "--grpc",
+        action="store_true",
+        help="Run as gRPC server instead of MCP server. "
+        "Default port is 50051. Use --port to change.",
+    )
+    parser.add_argument(
         "--title",
         type=str,
         default=None,
@@ -116,8 +121,32 @@ Examples:
         else:
             env_id = args.env
 
+        # Run gRPC server if --grpc flag is set
+        if args.grpc:
+            logger.info(f"Creating gRPC server for environment: {env_id}")
+
+            grpc_server = GymGRPCServer(
+                env_id=env_id,
+                render_mode=args.render_mode,
+            )
+
+            logger.info("Starting gRPC server...")
+            logger.info(
+                "The server exposes the following gRPC methods:\n"
+                "  - Reset: Reset the environment\n"
+                "  - Step: Take an action in the environment\n"
+                "  - Render: Render the environment\n"
+                "  - GetInfo: Get environment information\n"
+                "  - Close: Close the environment\n"
+                "  - Health: Health check"
+            )
+            logger.info(f"gRPC server will listen on {args.host}:{args.port}")
+
+            # Run the gRPC server
+            grpc_server.run(host=args.host, port=args.port)
+
         # Run HTTP server with Swagger UI if --http flag is set
-        if args.http:
+        elif args.http:
             logger.info(f"Creating HTTP server for environment: {env_id}")
 
             http_server = GymHTTPServer(

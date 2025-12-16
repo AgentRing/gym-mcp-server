@@ -9,10 +9,14 @@ Expose any Gymnasium environment as an MCP (Model Context Protocol) server, auto
 ## Features
 
 - 🎮 Works with any Gymnasium environment
-- 🔧 Exposes gym operations as MCP tools (`reset`, `step`, `render`, etc.)
+- 🔧 Exposes gym operations via multiple protocols:
+  - **MCP** (Model Context Protocol) - stdio, HTTP, SSE transports
+  - **HTTP/REST** - FastAPI with Swagger UI
+  - **gRPC** - High-performance RPC with protobuf
 - 🚀 Simple API with automatic serialization and error handling
 - 🤖 Designed for AI agent integration (OpenAI Agents SDK, LangChain, etc.)
 - 🔍 Type safe with full type hints
+- ♻️ Shared service layer for code reuse across protocols
 
 ## Installation
 
@@ -39,27 +43,41 @@ python -m gym_mcp_server --env CartPole-v1 --transport streamable-http --host lo
 python -m gym_mcp_server --env CartPole-v1 --transport sse --host localhost --port 8000
 ```
 
+### HTTP/REST Server
+
+Run the server as a REST API with Swagger UI:
+
+```bash
+# Using HTTP REST API with Swagger UI
+python -m gym_mcp_server --env CartPole-v1 --http --port 8000
+# Then open http://localhost:8000/docs for Swagger UI
+```
+
+### gRPC Server
+
+Run the server as a gRPC service:
+
+```bash
+# Using gRPC (default port 50051)
+python -m gym_mcp_server --env CartPole-v1 --grpc --port 50051
+```
+
 ### Programmatic Usage
 
 ```python
-from gym_mcp_server import GymMCPServer
+from gym_mcp_server import GymMCPServer, GymHTTPServer, GymGRPCServer
 
-# Create an MCP server with stdio transport
-server = GymMCPServer(
-    env_id="CartPole-v1",
-    render_mode="rgb_array"
-)
+# MCP server with stdio transport
+mcp_server = GymMCPServer(env_id="CartPole-v1", render_mode="rgb_array")
+# mcp_server.run(transport="stdio")
 
-# Run the server (blocking call)
-# server.run(transport="stdio")
+# HTTP server with Swagger UI
+http_server = GymHTTPServer(env_id="CartPole-v1")
+# http_server.run(host="localhost", port=8000)
 
-# Or with HTTP transport
-server_http = GymMCPServer(
-    env_id="CartPole-v1",
-    host="localhost",
-    port=8000
-)
-# server_http.run(transport="streamable-http")
+# gRPC server
+grpc_server = GymGRPCServer(env_id="CartPole-v1")
+# grpc_server.run(host="localhost", port=50051)
 ```
 
 ## Available Tools
@@ -89,6 +107,8 @@ The [examples/](examples/) directory contains complete working examples:
 
 - **MCP Server** - Creating and running MCP servers
 - **MCP Client** - Low-level MCP protocol usage
+- **HTTP Client** - Connecting to HTTP REST API
+- **gRPC Client** - Connecting to gRPC server
 - **OpenAI Agents SDK (stdio)** - AI agent with stdio transport
 - **OpenAI Agents SDK (HTTP)** - AI agent with HTTP transport
 
@@ -130,9 +150,11 @@ python -m gym_mcp_server --help
 
 - `--env`: Gymnasium environment ID (required)
 - `--render-mode`: Default render mode (e.g., rgb_array, human)
-- `--transport`: Transport type - stdio, streamable-http, or sse (default: stdio)
-- `--host`: Host for HTTP-based transports (default: localhost)
-- `--port`: Port for HTTP-based transports (default: 8000)
+- `--transport`: Transport type - stdio, streamable-http, or sse (default: stdio, MCP only)
+- `--http`: Run as HTTP REST API server with Swagger UI
+- `--grpc`: Run as gRPC server
+- `--host`: Host for HTTP/gRPC servers (default: localhost)
+- `--port`: Port for HTTP/gRPC servers (default: 8000 for HTTP, 50051 for gRPC)
 
 ### Transport Options
 
@@ -151,6 +173,36 @@ python -m gym_mcp_server --env CartPole-v1 --transport streamable-http --host 0.
 **sse**: Server-Sent Events transport for real-time updates
 ```bash
 python -m gym_mcp_server --env CartPole-v1 --transport sse --host 0.0.0.0 --port 8000
+```
+
+**http**: HTTP REST API with Swagger UI
+```bash
+python -m gym_mcp_server --env CartPole-v1 --http --host 0.0.0.0 --port 8000
+# Access Swagger UI at http://0.0.0.0:8000/docs
+```
+
+**grpc**: gRPC server with protobuf
+```bash
+python -m gym_mcp_server --env CartPole-v1 --grpc --host 0.0.0.0 --port 50051
+```
+
+### Generating gRPC Code
+
+Before using the gRPC server, you need to generate Python code from the proto file:
+
+```bash
+# Install dev dependencies (includes grpcio-tools)
+pip install -e ".[dev]"
+
+# Generate proto code
+python scripts/generate_proto.py
+```
+
+Or manually:
+```bash
+python -m grpc_tools.protoc -I gym_mcp_server/proto \
+    --python_out=gym_mcp_server --grpc_python_out=gym_mcp_server \
+    gym_mcp_server/proto/gym_service.proto
 ```
 
 ## Troubleshooting

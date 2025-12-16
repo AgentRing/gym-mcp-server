@@ -5,11 +5,24 @@ A Model Context Protocol (MCP) server that exposes any Gymnasium environment
 as MCP tools, allowing agents to interact with Gym environments through
 standard JSON interfaces.
 
-Also provides an HTTP server with Swagger UI for REST API access.
+Also provides HTTP/REST and gRPC servers for different use cases.
 """
 
-from .server import GymMCPServer
-from .http_server import GymHTTPServer, create_app
+from .servers import (
+    BaseGymServer,
+    GymMCPServer,
+    GymHTTPServer,
+    GymGRPCServer,
+    create_app,
+)
+from .service import GymService
 
 __version__ = "0.3.0"
-__all__ = ["GymMCPServer", "GymHTTPServer", "create_app"]
+__all__ = [
+    "BaseGymServer",
+    "GymMCPServer",
+    "GymHTTPServer",
+    "GymGRPCServer",
+    "GymService",
+    "create_app",
+]
