@@ -141,7 +141,7 @@ class GymHTTPServer:
         self,
         env_id: str,
         render_mode: Optional[str] = None,
-        title: str = "Gym Environment API",
+        title: Optional[str] = None,
         description: Optional[str] = None,
     ):
         """Initialize the Gym HTTP Server.
@@ -149,11 +149,24 @@ class GymHTTPServer:
         Args:
             env_id: The Gymnasium environment ID
             render_mode: Optional render mode for the environment
-            title: Title for the Swagger UI
-            description: Description for the Swagger UI
+            title: Title for the Swagger UI (default: derived from env_id)
+            description: Description/subtitle for the Swagger UI
         """
         self.env_id = env_id
         self.render_mode = render_mode
+
+        # Derive a meaningful title from env_id if not provided
+        if title is None:
+            # Extract a clean name from the env_id (e.g., "CartPole-v1" -> "CartPole")
+            # Handle dynamic IDs like "WebAgentTextEnv-dynamic-eb33bd93-v0"
+            base_name = env_id.split("-dynamic-")[0].split("-v")[0]
+            # Convert camelCase to Title Case with spaces
+            import re
+            title = re.sub(r"([a-z])([A-Z])", r"\1 \2", base_name)
+            title = f"{title} Environment API"
+
+        self.title = title
+        self.description = description
 
         # Initialize the Gymnasium environment
         logger.info(f"Initializing environment: {env_id}")
@@ -171,10 +184,10 @@ class GymHTTPServer:
 
     def _create_app(self, title: str, description: Optional[str] = None) -> FastAPI:
         """Create and configure the FastAPI application."""
-        if description is None:
-            description = f"""
-## Gymnasium Environment HTTP API
-
+        # Build the full description with optional custom subtitle
+        subtitle = f"\n\n{description}\n" if description else ""
+        full_description = f"""## {title}
+{subtitle}
 Interact with the **{self.env_id}** environment through REST endpoints.
 
 ### Available Operations:
@@ -205,7 +218,7 @@ Interact with the **{self.env_id}** environment through REST endpoints.
 
         app = FastAPI(
             title=title,
-            description=description,
+            description=full_description,
             version="0.3.0",
             lifespan=lifespan,
             docs_url="/docs",
@@ -415,6 +428,8 @@ def create_app(
     env_id: str,
     render_mode: Optional[str] = None,
     entry_point: Optional[str] = None,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> FastAPI:
     """Factory function to create a FastAPI app for a gym environment.
 
@@ -424,6 +439,8 @@ def create_app(
         env_id: The Gymnasium environment ID
         render_mode: Optional render mode
         entry_point: Optional entry point to register a custom environment
+        title: Optional title for Swagger UI (default: derived from env_id)
+        description: Optional description/subtitle for Swagger UI
 
     Returns:
         Configured FastAPI application
@@ -436,6 +453,11 @@ def create_app(
     if entry_point:
         env_id = register_env_from_entry_point(entry_point=entry_point, env_id=env_id)
 
-    server = GymHTTPServer(env_id=env_id, render_mode=render_mode)
+    server = GymHTTPServer(
+        env_id=env_id,
+        render_mode=render_mode,
+        title=title,
+        description=description,
+    )
     return server.app
 

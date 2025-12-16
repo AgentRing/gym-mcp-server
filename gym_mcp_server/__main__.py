@@ -84,6 +84,18 @@ Examples:
         help="Run as HTTP REST API server with Swagger UI instead of MCP server. "
         "Access Swagger UI at http://<host>:<port>/docs",
     )
+    parser.add_argument(
+        "--title",
+        type=str,
+        default=None,
+        help="Title for the Swagger UI (default: derived from environment ID)",
+    )
+    parser.add_argument(
+        "--description",
+        type=str,
+        default=None,
+        help="Description/subtitle for the Swagger UI",
+    )
 
     args = parser.parse_args()
 
@@ -111,6 +123,8 @@ Examples:
             http_server = GymHTTPServer(
                 env_id=env_id,
                 render_mode=args.render_mode,
+                title=args.title,
+                description=args.description,
             )
 
             logger.info("Starting HTTP server with Swagger UI...")
