@@ -269,7 +269,8 @@ def register_env_from_entry_point(
         module = importlib.import_module(module_path)
     except ImportError as e:
         raise ImportError(
-            f"Cannot import module '{module_path}' from entry point '{entry_point}': {e}"
+            f"Cannot import module '{module_path}' "
+            f"from entry point '{entry_point}': {e}"
         ) from e
 
     if not hasattr(module, class_name):

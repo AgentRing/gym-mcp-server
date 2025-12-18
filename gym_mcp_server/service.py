@@ -86,7 +86,8 @@ class GymService:
             action: The action to take in the environment
 
         Returns:
-            Dictionary with observation, reward, done, truncated, info, and success status
+            Dictionary with observation, reward, done, truncated, info,
+            and success status
         """
         logger.info(f"Taking step with action={action}")
         try:
@@ -175,4 +176,3 @@ class GymService:
         except Exception as e:
             logger.error(f"Error closing environment: {e}")
             return {"status": "error", "success": False, "error": str(e)}
-

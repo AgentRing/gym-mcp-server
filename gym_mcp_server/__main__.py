@@ -5,8 +5,7 @@ Entrypoint for running the gym_mcp_server as a module.
 import sys
 import argparse
 import logging
-from typing import Any, Dict, Optional
-from .servers import GymMCPServer, GymHTTPServer, GymGRPCServer
+from .servers import GymHTTPServer
 from .utils import register_env_from_entry_point
 
 # Configure logging
@@ -15,13 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> int:
-    """Main entry point for the MCP server."""
+    """Main entry point for the combined HTTP (REST + MCP) server."""
     parser = argparse.ArgumentParser(
-        description="Run a Gymnasium environment as an MCP or HTTP server.",
+        description=(
+            "Run a Gymnasium environment over HTTP, "
+            "exposing both REST and MCP (/mcp)."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use a registered environment (MCP mode)
+  # Start combined REST + MCP server
   python -m gym_mcp_server --env CartPole-v1
 
   # Use a custom class via entry point
@@ -30,40 +32,36 @@ Examples:
   # Entry point with custom env ID
   python -m gym_mcp_server --entry-point mymodule.envs:MyEnv --env MyEnv-v0
 
-  # MCP HTTP transport
-  python -m gym_mcp_server --env CartPole-v1 --transport streamable-http --port 8000
-
-  # HTTP server with Swagger UI
-  python -m gym_mcp_server --env CartPole-v1 --http --port 8000
-  # Then open http://localhost:8000/docs for Swagger UI
+  # Then open:
+  # - REST docs: http://localhost:8000/docs
+  # - MCP endpoint (streamable-http): http://localhost:8000/mcp
         """,
     )
     parser.add_argument(
         "--env",
         type=str,
         default=None,
-        help="Gymnasium environment ID (e.g., CartPole-v1). Required unless --entry-point is provided.",
+        help=(
+            "Gymnasium environment ID (e.g., CartPole-v1). "
+            "Required unless --entry-point is provided."
+        ),
     )
     parser.add_argument(
         "--entry-point",
         type=str,
         default=None,
         dest="entry_point",
-        help="Entry point in format 'module.path:ClassName' to dynamically register an environment. "
-        "If --env is not provided, an ID will be auto-generated.",
+        help=(
+            "Entry point in format 'module.path:ClassName' "
+            "to dynamically register an environment. "
+            "If --env is not provided, an ID will be auto-generated."
+        ),
     )
     parser.add_argument(
         "--render-mode",
         type=str,
         default=None,
         help="Default render mode (e.g., rgb_array, human)",
-    )
-    parser.add_argument(
-        "--transport",
-        type=str,
-        default="stdio",
-        choices=["stdio", "streamable-http", "sse"],
-        help="Transport type for the MCP server (default: stdio). Ignored when --http is used.",
     )
     parser.add_argument(
         "--host",
@@ -76,18 +74,6 @@ Examples:
         type=int,
         default=8000,
         help="Port for HTTP-based transports (default: 8000)",
-    )
-    parser.add_argument(
-        "--http",
-        action="store_true",
-        help="Run as HTTP REST API server with Swagger UI instead of MCP server. "
-        "Access Swagger UI at http://<host>:<port>/docs",
-    )
-    parser.add_argument(
-        "--grpc",
-        action="store_true",
-        help="Run as gRPC server instead of MCP server. "
-        "Default port is 50051. Use --port to change.",
     )
     parser.add_argument(
         "--title",
@@ -121,95 +107,30 @@ Examples:
         else:
             env_id = args.env
 
-        # Run gRPC server if --grpc flag is set
-        if args.grpc:
-            logger.info(f"Creating gRPC server for environment: {env_id}")
+        logger.info(f"Creating combined HTTP server for environment: {env_id}")
 
-            grpc_server = GymGRPCServer(
-                env_id=env_id,
-                render_mode=args.render_mode,
-            )
+        http_server = GymHTTPServer(
+            env_id=env_id,
+            render_mode=args.render_mode,
+            title=args.title,
+            description=args.description,
+        )
 
-            logger.info("Starting gRPC server...")
-            logger.info(
-                "The server exposes the following gRPC methods:\n"
-                "  - Reset: Reset the environment\n"
-                "  - Step: Take an action in the environment\n"
-                "  - Render: Render the environment\n"
-                "  - GetInfo: Get environment information\n"
-                "  - Close: Close the environment\n"
-                "  - Health: Health check"
-            )
-            logger.info(f"gRPC server will listen on {args.host}:{args.port}")
+        logger.info("Starting HTTP server (REST + MCP)...")
+        logger.info(
+            "REST endpoints:\n"
+            "  - POST /reset: Reset the environment\n"
+            "  - POST /step: Take an action in the environment\n"
+            "  - POST /render: Render the environment\n"
+            "  - GET /info: Get environment information\n"
+            "  - POST /close: Close the environment\n"
+            "\n"
+            "MCP endpoint:\n"
+            "  - POST /mcp (streamable-http transport)"
+        )
+        logger.info(f"Swagger UI: http://{args.host}:{args.port}/docs")
 
-            # Run the gRPC server
-            grpc_server.run(host=args.host, port=args.port)
-
-        # Run HTTP server with Swagger UI if --http flag is set
-        elif args.http:
-            logger.info(f"Creating HTTP server for environment: {env_id}")
-
-            http_server = GymHTTPServer(
-                env_id=env_id,
-                render_mode=args.render_mode,
-                title=args.title,
-                description=args.description,
-            )
-
-            logger.info("Starting HTTP server with Swagger UI...")
-            logger.info(
-                "The server exposes the following REST endpoints:\n"
-                "  - POST /reset: Reset the environment\n"
-                "  - POST /step: Take an action in the environment\n"
-                "  - POST /render: Render the environment\n"
-                "  - GET /info: Get environment information\n"
-                "  - POST /close: Close the environment"
-            )
-            logger.info(f"Swagger UI: http://{args.host}:{args.port}/docs")
-            logger.info(f"ReDoc: http://{args.host}:{args.port}/redoc")
-
-            # Run the HTTP server
-            http_server.run(host=args.host, port=args.port)
-
-        else:
-            # Create and run the MCP server
-            logger.info(f"Creating MCP server for environment: {env_id}")
-            logger.info(f"Transport: {args.transport}")
-
-            # Build kwargs for GymMCPServer based on transport
-            kwargs: Dict[str, Any] = {}
-            if args.transport in ("streamable-http", "sse"):
-                kwargs["host"] = args.host
-                kwargs["port"] = args.port
-                logger.info(f"Server will listen on {args.host}:{args.port}")
-
-            gym_server = GymMCPServer(
-                env_id=env_id,
-                render_mode=args.render_mode,
-                **kwargs,
-            )
-
-            # Run the server with the specified transport
-            logger.info("Starting MCP server...")
-            logger.info(
-                "The server exposes the following MCP tools:\n"
-                "  - reset_env: Reset the environment\n"
-                "  - step_env: Take an action in the environment\n"
-                "  - render_env: Render the environment\n"
-                "  - get_env_info: Get environment information\n"
-                "  - close_env: Close the environment"
-            )
-
-            if args.transport == "stdio":
-                logger.info(
-                    "Server running on stdio. Connect using an MCP client "
-                    "(e.g., Claude Desktop, MCP Inspector)."
-                )
-            else:
-                logger.info(f"Server ready at http://{args.host}:{args.port}")
-
-            # Run the server
-            gym_server.run(transport=args.transport)
+        http_server.run(host=args.host, port=args.port)
 
     except KeyboardInterrupt:
         logger.info("\nServer stopped by user")

@@ -1,3 +1,1 @@
-"""
-Test package for gym-mcp-server.
-"""
+"""Tests for gym-mcp-server."""

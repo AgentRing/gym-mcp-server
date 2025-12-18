@@ -11,9 +11,9 @@ help:
 	@echo "  make check            - Run all checks (format, lint, typecheck, test)"
 	@echo "  make generate-proto   - Generate Python code from proto files"
 	@echo ""
-	@echo "MCP Server (stdio transport):"
-	@echo "  make run-server       - Run MCP server (stdio transport)"
-	@echo "  make run-demo         - Run CartPole demo via stdio transport (random actions)"
+	@echo "Server & demo:"
+	@echo "  make run-server       - Run combined HTTP server (REST + MCP) for CartPole-v1"
+	@echo "  make run-demo         - Run CartPole demo via MCP over HTTP (streamable-http)"
 
 # Installation targets
 install:
@@ -29,11 +29,11 @@ test:
 # Code quality targets
 lint:
 	@echo "🔍 Running flake8..."
-	uv run flake8 gym_mcp_server/ tests/ examples/
+	uv run flake8 gym_mcp_server/ tests/
 
 format:
 	@echo "✨ Formatting code with black..."
-	uv run black gym_mcp_server/ tests/ examples/
+	uv run black gym_mcp_server/ tests/
 
 typecheck:
 	@echo "🔍 Running type checking with mypy..."
@@ -47,14 +47,13 @@ generate-proto:
 	@echo "🔧 Generating Python code from proto files..."
 	uv run python scripts/generate_proto.py
 
-# MCP stdio server and example targets
+# Server and example targets
 run-server:
-	@echo "🚀 Starting standalone MCP server with CartPole-v1..."
-	@echo "Note: This runs a standalone server on stdio (for manual testing)."
-	@echo "It waits for input on stdin. Most clients spawn their own server instead."
-	@echo "For a working demo, use 'make run-demo' which spawns its own server."
+	@echo "🚀 Starting combined HTTP server (REST + MCP) with CartPole-v1..."
+	@echo "REST docs: http://localhost:8000/docs"
+	@echo "MCP endpoint: http://localhost:8000/mcp"
 	@echo ""
-	uv run python -m gym_mcp_server --env CartPole-v1 --render-mode rgb_array --transport stdio
+	uv run python -m gym_mcp_server --env CartPole-v1 --render-mode rgb_array --host localhost --port 8000
 
 run-demo:
 	@echo "🎮 Running CartPole demo via HTTP transport..."

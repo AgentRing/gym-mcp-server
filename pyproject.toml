@@ -32,13 +32,10 @@ dependencies = [
     "gymnasium>=0.29.0",
     "numpy>=1.21.0",
     "pillow>=8.0.0",
-    "mcp>=1.0.0",
+    "fastapi-mcp>=0.1.0",
     "pygame>=2.0.0",
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
-    "grpcio>=1.60.0",
-    "protobuf>=4.25.0",
-    "protobuf-to-pydantic>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +45,6 @@ dev = [
     "black>=22.0.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
-    "grpcio-tools>=1.60.0",
 ]
 docs = [
     "sphinx>=5.0.0",
@@ -61,7 +57,7 @@ Repository = "https://github.com/AgentRing/gym-mcp-server"
 Issues = "https://github.com/AgentRing/gym-mcp-server/issues"
 
 [project.scripts]
-gym-mcp-server = "gym_mcp_server.server:main"
+gym-mcp-server = "gym_mcp_server.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gym_mcp_server"]
@@ -98,6 +94,10 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "fastapi_mcp.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
