@@ -68,6 +68,7 @@ def _print_server_banner(env_id: str, host: str, port: int) -> None:
       • POST   {base_url}/step      - Take an action in the environment
       • POST   {base_url}/render    - Render the current state
       • GET    {base_url}/info      - Get environment information
+      • GET    {base_url}/sample    - Sample a random action from action space
       • POST   {base_url}/close     - Close the environment
       • GET    {base_url}/health    - Health check endpoint
       • GET    {base_url}/          - Server information
@@ -347,6 +348,11 @@ def _generate_index_html(env_id: str, base_url: str) -> str:
                         <div class="endpoint-desc">Get environment information</div>
                     </li>
                     <li class="endpoint-item">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/sample</span>
+                        <div class="endpoint-desc">Sample a random action from action space</div>
+                    </li>
+                    <li class="endpoint-item">
                         <span class="method post">POST</span>
                         <span class="endpoint-path">/close</span>
                         <div class="endpoint-desc">Close the environment</div>
@@ -513,6 +519,25 @@ def create_app(
             logger.error(f"Error in info endpoint: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @app.get("/sample", response_model=Dict[str, Any])
+    async def sample() -> Dict[str, Any]:
+        """Sample a random action from the environment's action space.
+
+        Returns:
+            Dictionary with sampled action and success status
+        """
+        try:
+            result = service.sample()
+            if not result.get("success", False):
+                raise HTTPException(
+                    status_code=500,
+                    detail=result.get("error", "Failed to sample action"),
+                )
+            return result
+        except Exception as e:
+            logger.error(f"Error in sample endpoint: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     @app.post("/close", response_model=Dict[str, Any])
     async def close() -> Dict[str, Any]:
         """Close the environment and free resources.
@@ -562,6 +587,7 @@ def create_app(
                     "step": "POST /step - Take an action in the environment",
                     "render": "POST /render - Render the current state",
                     "info": "GET /info - Get environment information",
+                    "sample": "GET /sample - Sample a random action from action space",
                     "close": "POST /close - Close the environment",
                     "health": "GET /health - Health check",
                 },

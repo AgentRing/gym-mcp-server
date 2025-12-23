@@ -13,6 +13,7 @@ import gymnasium as gym
 from .utils import (
     serialize_observation,
     serialize_render_output,
+    serialize_action,
     get_environment_info,
 )
 
@@ -159,6 +160,27 @@ class GymService:
             logger.error(f"Error getting environment info: {e}")
             return {
                 "env_info": {},
+                "success": False,
+                "error": str(e),
+            }
+
+    def sample(self) -> Dict[str, Any]:
+        """Sample a random action from the environment's action space.
+
+        Returns:
+            Dictionary with sampled action and success status
+        """
+        logger.info("Sampling action from action space")
+        try:
+            action = self.env.action_space.sample()
+            return {
+                "action": serialize_action(action),
+                "success": True,
+            }
+        except Exception as e:
+            logger.error(f"Error sampling action: {e}")
+            return {
+                "action": None,
                 "success": False,
                 "error": str(e),
             }
