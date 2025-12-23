@@ -117,18 +117,7 @@ Examples:
         )
 
         logger.info("Starting HTTP server (REST + MCP)...")
-        logger.info(
-            "REST endpoints:\n"
-            "  - POST /reset: Reset the environment\n"
-            "  - POST /step: Take an action in the environment\n"
-            "  - POST /render: Render the environment\n"
-            "  - GET /info: Get environment information\n"
-            "  - POST /close: Close the environment\n"
-            "\n"
-            "MCP endpoint:\n"
-            "  - POST /mcp (streamable-http transport)"
-        )
-        logger.info(f"Swagger UI: http://{args.host}:{args.port}/docs")
+        # Banner will be printed automatically on server startup via FastAPI event
 
         http_server.run(host=args.host, port=args.port)
 
