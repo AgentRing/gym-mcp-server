@@ -1,6 +1,9 @@
 """Tests for the GymService class."""
 
+import pytest
 from gym_mcp_server.service import GymService
+
+pytestmark = pytest.mark.timeout(10)
 
 
 class TestGymService:
@@ -71,7 +74,7 @@ class TestGymService:
 
     def test_render_with_mode(self):
         """Test rendering with specific mode."""
-        service = GymService(env_id="CartPole-v1")
+        service = GymService(env_id="CartPole-v1", render_mode="rgb_array")
         service.reset()
         result = service.render(mode="rgb_array")
         assert result["success"] is True

@@ -165,6 +165,11 @@ def get_environment_info(env: Any) -> Dict[str, Any]:
         "action_space": str(env.action_space),
         "observation_space": str(env.observation_space),
         "reward_range": getattr(env, "reward_range", None),
+        "max_episode_steps": (
+            getattr(env.spec, "max_episode_steps", None)
+            if hasattr(env, "spec") and env.spec
+            else None
+        ),
     }
 
     # Add action space details

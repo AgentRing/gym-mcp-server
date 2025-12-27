@@ -4,7 +4,7 @@ Expose any Gymnasium environment as an MCP (Model Context Protocol) server, auto
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Test Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)](htmlcov/index.html)
+[![Test Coverage](https://img.shields.io/badge/coverage-60%25-brightgreen.svg)](htmlcov/index.html)
 
 ## Features
 
@@ -56,7 +56,7 @@ The server exposes these MCP tools:
 - **`render_env`** - Render current state (optional `mode`)
 - **`close_env`** - Close environment and free resources
 - **`get_env_info`** - Get environment metadata
-- **`get_available_tools`** - List all available tools
+- **`sample_action`** - Sample a random action from the action space
 
 All tools return a standardized format:
 
@@ -70,14 +70,24 @@ All tools return a standardized format:
 
 ## Examples
 
-The [examples/](examples/) directory contains complete working examples:
+You can use the server with any MCP-compatible client. Here's a simple example using the MCP Python client:
 
-- **MCP Server** - Creating and running MCP servers
-- **MCP Client** - Low-level MCP protocol usage
-- **HTTP Client** - Connecting to HTTP REST API
-- **OpenAI Agents SDK (HTTP)** - AI agent with HTTP transport
+```python
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
-See [examples/README.md](examples/README.md) for details and instructions.
+async with streamablehttp_client("http://localhost:8000/mcp") as (read, write, _):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        
+        # List available tools
+        tools = await session.list_tools()
+        print(f"Available tools: {[tool.name for tool in tools.tools]}")
+        
+        # Reset the environment
+        result = await session.call_tool("reset_env", arguments={})
+        print(f"Reset result: {result.content[0].text}")
+```
 
 ## Integration
 
@@ -96,8 +106,6 @@ async with MCPServerStreamableHttp(
     agent = Agent(name="GymAgent", instructions="...", mcp_servers=[server])
     result = await Runner.run(agent, "Play CartPole")
 ```
-
-See [examples/openai_agents_http_example.py](examples/openai_agents_http_example.py).
 
 Documentation: [OpenAI Agents SDK MCP Integration](https://openai.github.io/openai-agents-python/mcp/)
 
@@ -146,7 +154,7 @@ For development and testing:
 git clone https://github.com/haggaishachar/gym-mcp-server.git
 cd gym-mcp-server
 make install     # Install with dependencies
-make check       # Run all checks (format, lint, typecheck, test)
+make check       # Run all checks (lint, typecheck, test)
 ```
 
 See the [Makefile](Makefile) for all available commands.

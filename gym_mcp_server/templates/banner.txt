@@ -1,0 +1,36 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    🎮 Gym MCP Server - Running                            ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+📋 Server Information
+   └─ Environment: {{ env_id }}{% if max_episode_steps is not none %}
+   └─ Max steps/episode: {{ max_episode_steps }}{% endif %}
+   └─ Version: 0.3.0
+   └─ Status: ✓ Running
+
+🌐 API Endpoints
+   └─ Base URL: {{ base_url }}
+   
+   🔧 REST API:
+      • POST   {{ base_url }}/reset     - Reset environment to initial state
+      • POST   {{ base_url }}/step      - Take an action in the environment
+      • POST   {{ base_url }}/render    - Render the current state
+      • GET    {{ base_url }}/info      - Get environment information
+      • GET    {{ base_url }}/sample    - Sample a random action from action space
+      • POST   {{ base_url }}/close     - Close the environment
+      • GET    {{ base_url }}/health    - Health check endpoint
+      • GET    {{ base_url }}/          - Server information
+   
+   📡 MCP Endpoint:
+      • POST   {{ base_url }}/mcp       - MCP (Model Context Protocol) endpoint
+
+📚 Documentation
+   └─ Swagger UI:     {{ base_url }}/docs
+   └─ OpenAPI Schema: {{ base_url }}/openapi.json
+   └─ ReDoc:          {{ base_url }}/redoc
+
+💡 Quick Start
+   └─ View API docs:  Open {{ base_url }}/docs in your browser
+   └─ Test endpoint:  curl {{ base_url }}/health
+
+═══════════════════════════════════════════════════════════════════════════

@@ -11,6 +11,8 @@ from gym_mcp_server.utils import (
 )
 import gymnasium as gym
 
+pytestmark = pytest.mark.timeout(10)
+
 
 class TestSerialization:
     """Test serialization functions."""

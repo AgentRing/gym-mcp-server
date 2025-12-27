@@ -4,6 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from gym_mcp_server.servers import create_app, GymHTTPServer
 
+pytestmark = pytest.mark.timeout(10)
+
 
 class TestCreateApp:
     """Test create_app function."""
@@ -26,12 +28,20 @@ class TestRESTEndpoints:
     @pytest.fixture
     def client(self):
         """Create test client."""
-        app = create_app(env_id="CartPole-v1")
+        app = create_app(env_id="CartPole-v1", render_mode="rgb_array")
         return TestClient(app)
 
     def test_root_endpoint(self, client):
         """Test root endpoint."""
         response = client.get("/")
+        assert response.status_code == 200
+        # Root endpoint returns HTML, not JSON
+        assert response.headers["content-type"].startswith("text/html")
+        assert "Gym MCP Server" in response.text
+
+    def test_api_endpoint(self, client):
+        """Test API info endpoint."""
+        response = client.get("/api")
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Gym MCP Server"
