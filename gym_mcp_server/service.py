@@ -47,6 +47,7 @@ class GymService:
             self.env = gym.make(env_id, render_mode=render_mode)
         else:
             self.env = gym.make(env_id)
+        logger.info(f"Successfully initialized environment: {env_id}")
 
     def reset(self, seed: Optional[int] = None) -> Dict[str, Any]:
         """Reset the environment to its initial state.
