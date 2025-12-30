@@ -28,11 +28,14 @@ EXPOSE 8000
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV NUM_EPISODES=10
+ENV MAX_STEPS_PER_EPISODE=500
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the server with CartPole-v1
-CMD ["python", "-m", "gym_mcp_server", "--env", "CartPole-v1", "--host", "0.0.0.0", "--port", "8000"]
+# Run the server with CartPole-v1 and run manager enabled
+# Run manager is enabled by default with configurable episodes and max steps
+CMD ["sh", "-c", "python -m gym_mcp_server --env CartPole-v1 --host 0.0.0.0 --port 8000 --num-episodes ${NUM_EPISODES} --max-steps-per-episode ${MAX_STEPS_PER_EPISODE}"]
 

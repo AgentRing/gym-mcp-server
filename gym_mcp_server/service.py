@@ -31,12 +31,18 @@ class GymService:
         self,
         env_id: str,
         render_mode: Optional[str] = None,
+        enable_run_manager: bool = True,
+        num_episodes: int = 10,
+        max_steps_per_episode: int = 1000,
     ):
         """Initialize the gym service.
 
         Args:
             env_id: The Gymnasium environment ID
             render_mode: Optional render mode for the environment
+            enable_run_manager: Whether to enable run manager for lifecycle tracking
+            num_episodes: Number of episodes in a run (used if run manager enabled)
+            max_steps_per_episode: Maximum steps per episode (used if run manager enabled)
         """
         self.env_id = env_id
         self.render_mode = render_mode
@@ -48,6 +54,19 @@ class GymService:
         else:
             self.env = gym.make(env_id)
         logger.info(f"Successfully initialized environment: {env_id}")
+
+        # Initialize run manager if enabled
+        self.run_manager: Optional["BasicRunManager"] = None
+        if enable_run_manager:
+            from .run_manager import BasicRunManager
+
+            self.run_manager = BasicRunManager(
+                gym_service=self,
+                num_episodes=num_episodes,
+                max_steps_per_episode=max_steps_per_episode,
+            )
+            # Auto-start run when manager is created
+            self.run_manager.start_run()
 
     def reset(self, seed: Optional[int] = None) -> Dict[str, Any]:
         """Reset the environment to its initial state.
@@ -65,12 +84,26 @@ class GymService:
             else:
                 obs, info = self.env.reset()
 
-            return {
+            result = {
                 "observation": serialize_observation(obs),
                 "info": info,
                 "done": False,
                 "success": True,
             }
+
+            # Notify run manager of episode start
+            if self.run_manager:
+                try:
+                    episode_info = self.run_manager.start_episode(seed=seed)
+                    result["run_progress"] = {
+                        "episode_num": episode_info["episode_num"],
+                        "total_episodes": episode_info["total_episodes"],
+                        "max_steps": episode_info["max_steps"],
+                    }
+                except RuntimeError as e:
+                    logger.warning(f"Run manager error: {e}")
+
+            return result
         except Exception as e:
             logger.error(f"Error resetting environment: {e}")
             return {
@@ -97,10 +130,25 @@ class GymService:
             act: Any = action
             if isinstance(action, (list, tuple)) and len(action) == 1:
                 act = action[0]
+            
+            # Convert string actions to integers for discrete action spaces
+            if isinstance(act, str):
+                try:
+                    act = int(act)
+                    logger.debug(f"Converted string action '{action}' to integer {act}")
+                except (ValueError, TypeError):
+                    # If conversion fails, try to extract number from string
+                    import re
+                    match = re.search(r'\d+', str(act))
+                    if match:
+                        act = int(match.group())
+                        logger.debug(f"Extracted and converted action '{action}' to integer {act}")
+                    else:
+                        raise ValueError(f"Cannot convert action '{act}' to integer")
 
             obs, reward, done, truncated, info = self.env.step(act)
 
-            return {
+            result = {
                 "observation": serialize_observation(obs),
                 "reward": float(reward),
                 "done": bool(done or truncated),
@@ -108,6 +156,24 @@ class GymService:
                 "info": info,
                 "success": True,
             }
+
+            # Record step in run manager
+            if self.run_manager:
+                try:
+                    step_info = self.run_manager.record_step(
+                        action=action,
+                        observation=result.get("observation"),
+                        reward=result.get("reward", 0.0),
+                        done=result.get("done", False),
+                        truncated=result.get("truncated", False),
+                        info=result.get("info", {}),
+                    )
+                    # Add run progress to result
+                    result["run_progress"] = step_info.get("run_progress", {})
+                except RuntimeError as e:
+                    logger.warning(f"Run manager error: {e}")
+
+            return result
         except Exception as e:
             logger.error(f"Error taking step: {e}")
             return {

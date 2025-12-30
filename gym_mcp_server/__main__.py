@@ -87,6 +87,30 @@ Examples:
         default=None,
         help="Description/subtitle for the Swagger UI",
     )
+    parser.add_argument(
+        "--enable-run-manager",
+        action="store_true",
+        default=True,
+        help="Enable run manager for lifecycle tracking (default: True)",
+    )
+    parser.add_argument(
+        "--disable-run-manager",
+        action="store_true",
+        default=False,
+        help="Disable run manager for lifecycle tracking",
+    )
+    parser.add_argument(
+        "--num-episodes",
+        type=int,
+        default=10,
+        help="Number of episodes in a run (default: 10)",
+    )
+    parser.add_argument(
+        "--max-steps-per-episode",
+        type=int,
+        default=1000,
+        help="Maximum steps per episode (default: 1000)",
+    )
 
     args = parser.parse_args()
 
@@ -109,11 +133,17 @@ Examples:
 
         logger.info(f"Creating combined HTTP server for environment: {env_id}")
 
+        # Determine if run manager should be enabled
+        enable_run_manager = args.enable_run_manager and not args.disable_run_manager
+
         http_server = GymHTTPServer(
             env_id=env_id,
             render_mode=args.render_mode,
             title=args.title,
             description=args.description,
+            enable_run_manager=enable_run_manager,
+            num_episodes=args.num_episodes,
+            max_steps_per_episode=args.max_steps_per_episode,
         )
 
         logger.info("Starting HTTP server (REST + MCP)...")

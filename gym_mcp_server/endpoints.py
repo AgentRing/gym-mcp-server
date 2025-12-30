@@ -275,3 +275,67 @@ def register_endpoints(app: FastAPI, service: GymService, env_id: str) -> None:
             Dictionary with health status
         """
         return {"status": "healthy", "env_id": env_id}
+
+    # Run manager endpoints
+    @app.get(
+        "/run/status",
+        response_model=Dict[str, Any],
+        operation_id="get_run_status",
+        tags=["run"],
+    )
+    async def get_run_status() -> Dict[str, Any]:
+        """Get current run status and progress.
+
+        Returns:
+            Dictionary with run status information
+        """
+        if not service.run_manager:
+            raise HTTPException(
+                status_code=404,
+                detail="Run manager not enabled for this server",
+            )
+        return service.run_manager.get_status()
+
+    @app.get(
+        "/run/statistics",
+        response_model=Dict[str, Any],
+        operation_id="get_run_statistics",
+        tags=["run"],
+    )
+    async def get_run_statistics() -> Dict[str, Any]:
+        """Get complete run statistics.
+
+        Returns:
+            Dictionary with all run statistics
+        """
+        if not service.run_manager:
+            raise HTTPException(
+                status_code=404,
+                detail="Run manager not enabled for this server",
+            )
+        return service.run_manager.get_statistics()
+
+    @app.post(
+        "/run/reset",
+        response_model=Dict[str, Any],
+        operation_id="reset_run",
+        tags=["run"],
+    )
+    async def reset_run() -> Dict[str, Any]:
+        """Reset the run manager for a new run.
+
+        Returns:
+            Dictionary with reset confirmation
+        """
+        if not service.run_manager:
+            raise HTTPException(
+                status_code=404,
+                detail="Run manager not enabled for this server",
+            )
+        service.run_manager.reset_run()
+        service.run_manager.start_run()
+        return {
+            "success": True,
+            "message": "Run reset successfully",
+            "run_id": service.run_manager.run_id,
+        }
