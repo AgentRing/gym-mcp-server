@@ -9,6 +9,7 @@ import logging
 from typing import Any, Dict, Optional
 
 import gymnasium as gym
+from gymnasium import spaces
 
 from .utils import (
     serialize_observation,
@@ -131,8 +132,12 @@ class GymService:
             if isinstance(action, (list, tuple)) and len(action) == 1:
                 act = action[0]
             
-            # Convert string actions to integers for discrete action spaces
-            if isinstance(act, str):
+            # Check if action space is text-based (e.g., TextWorld)
+            # Only convert string actions to integers for discrete action spaces
+            is_text_space = isinstance(self.env.action_space, spaces.Text)
+            
+            # Convert string actions to integers only for discrete action spaces
+            if isinstance(act, str) and not is_text_space:
                 try:
                     act = int(act)
                     logger.debug(f"Converted string action '{action}' to integer {act}")
