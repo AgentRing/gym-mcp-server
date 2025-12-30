@@ -358,6 +358,11 @@ class BasicRunManager:
         self.current_episode_stats.done = done
         self.current_episode_stats.truncated = truncated
 
+        # Capture episode stats before potentially finalizing episode
+        # (episode will be finalized in _finalize_episode, setting current_episode_stats to None)
+        episode_total_steps = self.current_episode_stats.total_steps
+        episode_total_reward = self.current_episode_stats.total_reward
+
         # Check if episode is complete
         if done or truncated:
             self._finalize_episode()
@@ -369,8 +374,8 @@ class BasicRunManager:
         return {
             "step_num": step_result.step_num,
             "episode_num": self.stats.current_episode,
-            "total_steps": self.current_episode_stats.total_steps,
-            "total_reward": self.current_episode_stats.total_reward,
+            "total_steps": episode_total_steps,
+            "total_reward": episode_total_reward,
             "done": done,
             "truncated": truncated,
             "run_progress": {

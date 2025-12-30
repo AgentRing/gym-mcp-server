@@ -175,7 +175,7 @@ class GymService:
                     )
                     # Add run progress to result
                     result["run_progress"] = step_info.get("run_progress", {})
-                except RuntimeError as e:
+                except (RuntimeError, AttributeError) as e:
                     logger.warning(f"Run manager error: {e}")
 
             return result
