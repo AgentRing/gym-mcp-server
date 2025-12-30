@@ -74,9 +74,9 @@ You can use the server with any MCP-compatible client. Here's a simple example u
 
 ```python
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
-async with streamablehttp_client("http://localhost:8000/mcp") as (read, write, _):
+async with streamable_http_client("http://localhost:8000/mcp") as (read, write, _):
     async with ClientSession(read, write) as session:
         await session.initialize()
         
