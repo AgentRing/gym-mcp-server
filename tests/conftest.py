@@ -18,4 +18,3 @@ warnings.filterwarnings(
     message=".*Deprecated call to.*pkg_resources.*",
     category=DeprecationWarning,
 )
-

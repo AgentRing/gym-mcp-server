@@ -172,7 +172,8 @@ class GymHTTPServer:
             description: Optional description for the Swagger UI
             enable_run_manager: Whether to enable run manager for lifecycle tracking
             num_episodes: Number of episodes in a run (used if run manager enabled)
-            max_steps_per_episode: Maximum steps per episode (used if run manager enabled)
+            max_steps_per_episode: Maximum steps per episode
+                (used if run manager enabled)
         """
         self.env_id = env_id
         self.render_mode = render_mode

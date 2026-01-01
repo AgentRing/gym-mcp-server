@@ -48,4 +48,4 @@ run-server:
 	@echo "REST docs: http://localhost:8000/docs"
 	@echo "MCP endpoint: http://localhost:8000/mcp"
 	@echo ""
-	uv run python -m gym_mcp_server --env CartPole-v1 --render-mode rgb_array --host localhost --port 8000
+	uv run python -m gym_mcp_server --env FrozenLake-v1 --render-mode rgb_array --host localhost --port 8000

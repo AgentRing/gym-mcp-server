@@ -14,7 +14,7 @@ pytestmark = pytest.mark.timeout(30)
 
 try:
     from mcp import ClientSession
-    from mcp.client.streamable_http import streamable_http_client
+    from mcp.client.streamable_http import streamablehttp_client
     from mcp.client.sse import sse_client
 
     MCP_AVAILABLE = True
@@ -133,7 +133,7 @@ class TestMCPHTTPTransport:
         base_url = test_server
 
         # Test HTTP transport
-        async with streamable_http_client(f"{base_url}/mcp") as (read, write, _):
+        async with streamablehttp_client(f"{base_url}/mcp") as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
 
@@ -272,7 +272,7 @@ class TestMCPTransportComparison:
 
         # Get tools via HTTP
         http_tools = set()
-        async with streamable_http_client(f"{base_url}/mcp") as (read, write, _):
+        async with streamablehttp_client(f"{base_url}/mcp") as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools_result = await session.list_tools()
@@ -303,7 +303,7 @@ class TestMCPTransportComparison:
 
         # Call get_env_info via HTTP
         http_result = None
-        async with streamable_http_client(f"{base_url}/mcp") as (read, write, _):
+        async with streamablehttp_client(f"{base_url}/mcp") as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool("get_env_info", arguments={})

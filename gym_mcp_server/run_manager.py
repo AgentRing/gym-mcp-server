@@ -10,7 +10,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from .service import GymService
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +156,8 @@ class RunStatistics:
                     "truncated": ep.truncated,
                     "success": ep.success,
                     "duration": ep.duration,
+                    "start_time": ep.start_time.isoformat() if ep.start_time else None,
+                    "end_time": ep.end_time.isoformat() if ep.end_time else None,
                 }
                 for ep in self.episodes
             ],
@@ -174,7 +179,7 @@ class BasicRunManager:
 
     def __init__(
         self,
-        gym_service: "GymService",  # Forward reference
+        gym_service: "GymService",
         num_episodes: int = 10,
         max_steps_per_episode: int = 1000,
         run_id: Optional[str] = None,
@@ -219,13 +224,22 @@ class BasicRunManager:
         """
         Start a new run.
 
+        Can be called from IDLE or COMPLETED state.
+        If called from COMPLETED, it will reset and start a new run.
+
         Returns:
             Dictionary with run information
         """
-        if self.stats.state != RunState.IDLE:
+        # Allow starting from IDLE or COMPLETED state
+        if self.stats.state not in (RunState.IDLE, RunState.COMPLETED):
             raise RuntimeError(
-                f"Cannot start run: current state is {self.stats.state.value}"
+                f"Cannot start run: current state is {self.stats.state.value}. "
+                f"Must be IDLE or COMPLETED."
             )
+
+        # If starting from COMPLETED, reset first
+        if self.stats.state == RunState.COMPLETED:
+            self.reset_run()
 
         self.stats.state = RunState.RUNNING
         self.stats.start_time = datetime.now()
@@ -253,11 +267,29 @@ class BasicRunManager:
         Returns:
             Dictionary with episode information
         """
-        # Check if we can start a new episode
-        if self.stats.completed_episodes >= self.num_episodes:
-            raise RuntimeError(
-                f"Cannot start episode: already completed {self.num_episodes} episodes"
+        # Auto-start run if in IDLE state (for gymnasium API compatibility)
+        # This allows clients to call reset() without explicitly calling
+        # start_run() first
+        if self.stats.state == RunState.IDLE:
+            logger.info(
+                "Auto-starting run from IDLE state (gymnasium API compatibility)"
             )
+            self.start_run()
+
+        # Auto-reset and start new run if completed (for gymnasium API compatibility)
+        # This allows clients to continue running episodes beyond the configured limit
+        if (
+            self.stats.state == RunState.COMPLETED
+            or self.stats.completed_episodes >= self.num_episodes
+        ):
+            logger.info(
+                f"Run completed ({self.stats.completed_episodes}/"
+                f"{self.num_episodes} episodes). "
+                "Auto-resetting and starting new run "
+                "(gymnasium API compatibility)"
+            )
+            self.reset_run()
+            self.start_run()
 
         if self.stats.state != RunState.RUNNING:
             raise RuntimeError(
@@ -359,7 +391,8 @@ class BasicRunManager:
         self.current_episode_stats.truncated = truncated
 
         # Capture episode stats before potentially finalizing episode
-        # (episode will be finalized in _finalize_episode, setting current_episode_stats to None)
+        # (episode will be finalized in _finalize_episode, setting
+        # current_episode_stats to None)
         episode_total_steps = self.current_episode_stats.total_steps
         episode_total_reward = self.current_episode_stats.total_reward
 
@@ -458,9 +491,14 @@ class BasicRunManager:
         Reset the run manager for a new run.
 
         This clears all statistics and resets state.
+        Generates a new run_id for the new run cycle.
         """
+        # Generate a new run_id for the new run cycle
+        new_run_id = str(uuid.uuid4())
+        self.run_id = new_run_id
+
         self.stats = RunStatistics(
-            run_id=self.run_id,
+            run_id=new_run_id,
             env_id=self.gym_service.env_id,
             num_episodes=self.num_episodes,
             max_steps_per_episode=self.max_steps_per_episode,
@@ -469,4 +507,4 @@ class BasicRunManager:
         )
         self.current_episode_stats = None
 
-        logger.info(f"Reset run manager: {self.run_id}")
+        logger.info(f"Reset run manager: new run_id={new_run_id}")

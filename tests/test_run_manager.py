@@ -5,8 +5,6 @@ from gym_mcp_server.service import GymService
 from gym_mcp_server.run_manager import (
     BasicRunManager,
     RunState,
-    EpisodeStatistics,
-    RunStatistics,
 )
 
 pytestmark = pytest.mark.timeout(10)
@@ -100,7 +98,7 @@ class TestGymServiceWithRunManager:
             max_steps_per_episode=10,
         )
         assert service.run_manager is not None
-        assert service.run_manager.stats.state == RunState.RUNNING
+        assert service.run_manager.stats.state == RunState.IDLE
         service.close()
 
     def test_reset_integrates_with_run_manager(self):

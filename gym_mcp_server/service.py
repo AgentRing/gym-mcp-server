@@ -43,7 +43,8 @@ class GymService:
             render_mode: Optional render mode for the environment
             enable_run_manager: Whether to enable run manager for lifecycle tracking
             num_episodes: Number of episodes in a run (used if run manager enabled)
-            max_steps_per_episode: Maximum steps per episode (used if run manager enabled)
+            max_steps_per_episode: Maximum steps per episode
+                (used if run manager enabled)
         """
         self.env_id = env_id
         self.render_mode = render_mode
@@ -66,8 +67,7 @@ class GymService:
                 num_episodes=num_episodes,
                 max_steps_per_episode=max_steps_per_episode,
             )
-            # Auto-start run when manager is created
-            self.run_manager.start_run()
+            # Don't auto-start - wait for explicit start_run() call from client
 
     def reset(self, seed: Optional[int] = None) -> Dict[str, Any]:
         """Reset the environment to its initial state.
@@ -102,7 +102,26 @@ class GymService:
                         "max_steps": episode_info["max_steps"],
                     }
                 except RuntimeError as e:
-                    logger.warning(f"Run manager error: {e}")
+                    # If run manager is enabled, enforce that start_run() was called
+                    error_msg = str(e)
+                    if "Cannot start episode" in error_msg:
+                        logger.error(
+                            f"Run manager error: {error_msg}. "
+                            "Call start_run() before reset() to begin "
+                            "tracking episodes."
+                        )
+                        return {
+                            "observation": None,
+                            "info": {},
+                            "done": True,
+                            "success": False,
+                            "error": (
+                                f"Run not started. Call start_run() first: "
+                                f"{error_msg}"
+                            ),
+                        }
+                    else:
+                        logger.warning(f"Run manager error: {e}")
 
             return result
         except Exception as e:
@@ -131,11 +150,11 @@ class GymService:
             act: Any = action
             if isinstance(action, (list, tuple)) and len(action) == 1:
                 act = action[0]
-            
+
             # Check if action space is text-based (e.g., TextWorld)
             # Only convert string actions to integers for discrete action spaces
             is_text_space = isinstance(self.env.action_space, spaces.Text)
-            
+
             # Convert string actions to integers only for discrete action spaces
             if isinstance(act, str) and not is_text_space:
                 try:
@@ -144,10 +163,14 @@ class GymService:
                 except (ValueError, TypeError):
                     # If conversion fails, try to extract number from string
                     import re
-                    match = re.search(r'\d+', str(act))
+
+                    match = re.search(r"\d+", str(act))
                     if match:
                         act = int(match.group())
-                        logger.debug(f"Extracted and converted action '{action}' to integer {act}")
+                        logger.debug(
+                            f"Extracted and converted action '{action}' "
+                            f"to integer {act}"
+                        )
                     else:
                         raise ValueError(f"Cannot convert action '{act}' to integer")
 
@@ -157,6 +180,7 @@ class GymService:
                 "observation": serialize_observation(obs),
                 "reward": float(reward),
                 "done": bool(done or truncated),
+                "terminated": bool(done),
                 "truncated": bool(truncated),
                 "info": info,
                 "success": True,
@@ -175,7 +199,34 @@ class GymService:
                     )
                     # Add run progress to result
                     result["run_progress"] = step_info.get("run_progress", {})
-                except (RuntimeError, AttributeError) as e:
+                except RuntimeError as e:
+                    # If run manager is enabled, enforce that start_run() was called
+                    error_msg = str(e)
+                    if (
+                        "Cannot record step" in error_msg
+                        or "no active episode" in error_msg
+                    ):
+                        logger.error(
+                            f"Run manager error: {error_msg}. "
+                            "Call start_run() and reset() before step() "
+                            "to begin tracking."
+                        )
+                        return {
+                            "observation": None,
+                            "reward": 0.0,
+                            "done": True,
+                            "truncated": False,
+                            "info": {},
+                            "success": False,
+                            "error": (
+                                f"Run not started or no active episode. "
+                                f"Call start_run() and reset() first: "
+                                f"{error_msg}"
+                            ),
+                        }
+                    else:
+                        logger.warning(f"Run manager error: {e}")
+                except AttributeError as e:
                     logger.warning(f"Run manager error: {e}")
 
             return result
