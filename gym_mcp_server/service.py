@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 import gymnasium as gym
 from gymnasium import spaces
+import numpy as np
 
 from .utils import (
     serialize_observation,
@@ -173,6 +174,79 @@ class GymService:
                         )
                     else:
                         raise ValueError(f"Cannot convert action '{act}' to integer")
+
+            # Validate action against action space
+            action_space = self.env.action_space
+
+            # For discrete action spaces, check if action is in valid range
+            if isinstance(action_space, spaces.Discrete):
+                if not isinstance(act, (int, np.integer)):
+                    raise ValueError(
+                        f"Invalid action type for Discrete action space: "
+                        f"expected int, got {type(act).__name__}"
+                    )
+                act = int(act)
+                if act < 0 or act >= action_space.n:
+                    raise ValueError(
+                        f"Action {act} is out of bounds for Discrete action space "
+                        f"with size {action_space.n}. "
+                        f"Valid actions are in range [0, {action_space.n - 1}]"
+                    )
+
+            # For Box action spaces, check bounds
+            elif isinstance(action_space, spaces.Box):
+                if isinstance(act, (int, float, np.number)):
+                    act = np.array([act])
+                elif isinstance(act, (list, tuple)):
+                    act = np.array(act)
+                elif not isinstance(act, np.ndarray):
+                    raise ValueError(
+                        f"Invalid action type for Box action space: "
+                        f"expected array-like, got {type(act).__name__}"
+                    )
+
+                act = np.asarray(act)
+                if act.shape != action_space.shape:
+                    raise ValueError(
+                        f"Action shape {act.shape} does not match action space shape "
+                        f"{action_space.shape}"
+                    )
+
+                # Check if action is within bounds
+                if not action_space.contains(act):
+                    low_str = str(action_space.low)
+                    high_str = str(action_space.high)
+                    raise ValueError(
+                        f"Action {act} is out of bounds for Box action space. "
+                        f"Bounds: low={low_str}, high={high_str}"
+                    )
+
+            # For MultiDiscrete action spaces
+            elif isinstance(action_space, spaces.MultiDiscrete):
+                if isinstance(act, (int, float, np.number)):
+                    act = np.array([act])
+                elif isinstance(act, (list, tuple)):
+                    act = np.array(act)
+                elif not isinstance(act, np.ndarray):
+                    raise ValueError(
+                        f"Invalid action type for MultiDiscrete action space: "
+                        f"expected array-like, got {type(act).__name__}"
+                    )
+
+                act = np.asarray(act, dtype=np.int32)
+                if act.shape != action_space.shape:
+                    raise ValueError(
+                        f"Action shape {act.shape} does not match action space shape "
+                        f"{action_space.shape}"
+                    )
+
+                # Check bounds for each dimension
+                for i, (a, n) in enumerate(zip(act.flat, action_space.nvec.flat)):
+                    if a < 0 or a >= n:
+                        raise ValueError(
+                            f"Action dimension {i} value {a} is out of bounds. "
+                            f"Valid range is [0, {n - 1}]"
+                        )
 
             obs, reward, done, truncated, info = self.env.step(act)
 
