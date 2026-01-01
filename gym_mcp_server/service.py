@@ -272,7 +272,8 @@ class GymService:
                         info=result.get("info", {}),
                     )
                     # Add run progress to result
-                    result["run_progress"] = step_info.get("run_progress", {})
+                    if step_info:
+                        result["run_progress"] = step_info.get("run_progress", {})
                 except RuntimeError as e:
                     # If run manager is enabled, enforce that start_run() was called
                     error_msg = str(e)
@@ -280,28 +281,28 @@ class GymService:
                         "Cannot record step" in error_msg
                         or "no active episode" in error_msg
                     ):
-                        logger.error(
+                        logger.warning(
                             f"Run manager error: {error_msg}. "
                             "Call start_run() and reset() before step() "
                             "to begin tracking."
                         )
-                        return {
-                            "observation": None,
-                            "reward": 0.0,
-                            "done": True,
-                            "truncated": False,
-                            "info": {},
-                            "success": False,
-                            "error": (
-                                f"Run not started or no active episode. "
-                                f"Call start_run() and reset() first: "
-                                f"{error_msg}"
-                            ),
-                        }
+                        # Don't fail the step, just log the warning
+                        # The step itself succeeded, we just couldn't track it
                     else:
                         logger.warning(f"Run manager error: {e}")
                 except AttributeError as e:
-                    logger.warning(f"Run manager error: {e}")
+                    # Handle case where current_episode_stats is None
+                    error_msg = str(e)
+                    if "total_steps" in error_msg or "no attribute" in error_msg:
+                        logger.warning(
+                            f"Run manager error: {error_msg}. "
+                            "No active episode to record step. "
+                            "This may happen if an episode completed and "
+                            "a new one hasn't been started yet."
+                        )
+                        # Don't fail the step, just log the warning
+                    else:
+                        logger.warning(f"Run manager error: {e}")
 
             return result
         except Exception as e:

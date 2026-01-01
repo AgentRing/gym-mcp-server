@@ -354,8 +354,14 @@ class BasicRunManager:
                 f"Cannot record step: run state is {self.stats.state.value}"
             )
 
+        # Store reference to current episode stats to avoid issues if it becomes None
+        # during execution (shouldn't happen, but defensive programming)
+        episode_stats = self.current_episode_stats
+        if episode_stats is None:
+            raise RuntimeError("Cannot record step: no active episode")
+
         # Check step limit
-        if self.current_episode_stats.total_steps >= self.max_steps_per_episode:
+        if episode_stats.total_steps >= self.max_steps_per_episode:
             logger.warning(
                 f"Episode {self.stats.current_episode} exceeded max steps "
                 f"({self.max_steps_per_episode})"
@@ -365,17 +371,17 @@ class BasicRunManager:
 
         # Increment step counters
         self.stats.current_step += 1
-        self.current_episode_stats.total_steps += 1
+        episode_stats.total_steps += 1
         self.stats.total_steps += 1
 
         # Update rewards
-        self.current_episode_stats.total_reward += reward
-        self.current_episode_stats.final_reward = reward
+        episode_stats.total_reward += reward
+        episode_stats.final_reward = reward
         self.stats.total_reward += reward
 
         # Create step result
         step_result = StepResult(
-            step_num=self.current_episode_stats.total_steps,
+            step_num=episode_stats.total_steps,
             action=action,
             observation=observation,
             reward=reward,
@@ -384,17 +390,17 @@ class BasicRunManager:
             info=info,
         )
 
-        self.current_episode_stats.steps.append(step_result)
+        episode_stats.steps.append(step_result)
 
         # Update episode state
-        self.current_episode_stats.done = done
-        self.current_episode_stats.truncated = truncated
+        episode_stats.done = done
+        episode_stats.truncated = truncated
 
         # Capture episode stats before potentially finalizing episode
         # (episode will be finalized in _finalize_episode, setting
         # current_episode_stats to None)
-        episode_total_steps = self.current_episode_stats.total_steps
-        episode_total_reward = self.current_episode_stats.total_reward
+        episode_total_steps = episode_stats.total_steps
+        episode_total_reward = episode_stats.total_reward
 
         # Check if episode is complete
         if done or truncated:
