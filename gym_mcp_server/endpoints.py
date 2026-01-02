@@ -44,6 +44,32 @@ def _generate_index_html(
     )
 
 
+def _generate_play_html(
+    env_id: str, base_url: str
+) -> str:
+    """Generate HTML for the play page.
+
+    Args:
+        env_id: The Gymnasium environment ID
+        base_url: Base URL of the server
+
+    Returns:
+        HTML string
+    """
+    from pathlib import Path
+    from jinja2 import Environment, FileSystemLoader
+
+    # Get the templates directory path
+    templates_dir = Path(__file__).parent / "templates"
+    env = Environment(loader=FileSystemLoader(str(templates_dir)))
+    template = env.get_template("play.html")
+
+    return template.render(
+        env_id=env_id,
+        base_url=base_url,
+    )
+
+
 def register_endpoints(app: FastAPI, service: GymService, env_id: str) -> None:
     """Register all endpoints on the FastAPI app.
 
@@ -222,6 +248,18 @@ def register_endpoints(app: FastAPI, service: GymService, env_id: str) -> None:
         )
         return HTMLResponse(content=html_content)
 
+    @app.get("/play", response_class=HTMLResponse, include_in_schema=False)
+    async def play(request: Request) -> HTMLResponse:
+        """Play endpoint providing interactive environment interface as HTML.
+
+        Returns:
+            HTML page for interacting with the environment
+        """
+        # Get base URL from request
+        base_url = str(request.base_url).rstrip("/")
+        html_content = _generate_play_html(env_id=env_id, base_url=base_url)
+        return HTMLResponse(content=html_content)
+
     @app.get("/api", response_model=Dict[str, Any], include_in_schema=False)
     async def api_info() -> Dict[str, Any]:
         """API endpoint providing server information as JSON.
@@ -275,103 +313,3 @@ def register_endpoints(app: FastAPI, service: GymService, env_id: str) -> None:
             Dictionary with health status
         """
         return {"status": "healthy", "env_id": env_id}
-
-    # Run manager endpoints
-    @app.get(
-        "/run/status",
-        response_model=Dict[str, Any],
-        operation_id="get_run_status",
-        tags=["run"],
-    )
-    async def get_run_status() -> Dict[str, Any]:
-        """Get current run status and progress.
-
-        Returns:
-            Dictionary with run status information
-        """
-        if not service.run_manager:
-            raise HTTPException(
-                status_code=404,
-                detail="Run manager not enabled for this server",
-            )
-        return service.run_manager.get_status()
-
-    @app.get(
-        "/run/statistics",
-        response_model=Dict[str, Any],
-        operation_id="get_run_statistics",
-        tags=["run"],
-    )
-    async def get_run_statistics() -> Dict[str, Any]:
-        """Get complete run statistics.
-
-        Returns:
-            Dictionary with all run statistics
-        """
-        if not service.run_manager:
-            raise HTTPException(
-                status_code=404,
-                detail="Run manager not enabled for this server",
-            )
-        return service.run_manager.get_statistics()
-
-    @app.post(
-        "/run/start",
-        response_model=Dict[str, Any],
-        operation_id="start_run",
-        tags=["run"],
-    )
-    async def start_run() -> Dict[str, Any]:
-        """Start a new run.
-
-        This initializes the run manager and begins tracking episodes.
-        All subsequent episodes will be logged under this run until
-        reset_run() is called.
-
-        Returns:
-            Dictionary with run information
-        """
-        if not service.run_manager:
-            raise HTTPException(
-                status_code=404,
-                detail="Run manager not enabled for this server",
-            )
-        try:
-            result = service.run_manager.start_run()
-            return {
-                "success": True,
-                **result,
-            }
-        except RuntimeError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    @app.post(
-        "/run/reset",
-        response_model=Dict[str, Any],
-        operation_id="reset_run",
-        tags=["run"],
-    )
-    async def reset_run() -> Dict[str, Any]:
-        """Reset the run manager for a new run.
-
-        This clears all statistics and starts a fresh run.
-        Equivalent to calling reset_run() followed by start_run().
-
-        Returns:
-            Dictionary with reset confirmation
-        """
-        if not service.run_manager:
-            raise HTTPException(
-                status_code=404,
-                detail="Run manager not enabled for this server",
-            )
-        try:
-            service.run_manager.reset_run()
-            result = service.run_manager.start_run()
-            return {
-                "success": True,
-                "message": "Run reset successfully",
-                **result,
-            }
-        except RuntimeError as e:
-            raise HTTPException(status_code=400, detail=str(e))

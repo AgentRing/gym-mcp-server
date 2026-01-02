@@ -2,7 +2,7 @@
 Shared service layer for gym environment operations.
 
 This module provides a unified interface for gym operations that can be used
-by MCP, HTTP, and gRPC servers to avoid code duplication.
+by MCP and HTTP servers to avoid code duplication.
 """
 
 import logging
@@ -22,53 +22,72 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+def _auto_detect_render_mode(env_id: str) -> Optional[str]:
+    """Try to automatically detect and enable a suitable render mode.
+    
+    Args:
+        env_id: The Gymnasium environment ID
+        
+    Returns:
+        A suitable render mode if available, None otherwise
+    """
+    # Common render modes to try in order of preference
+    render_modes_to_try = ["rgb_array", "ansi", "human"]
+    
+    for mode in render_modes_to_try:
+        try:
+            # Try to create the environment with this render mode
+            test_env = gym.make(env_id, render_mode=mode)
+            test_env.close()
+            return mode
+        except (ValueError, TypeError, AttributeError):
+            # This render mode is not supported, try the next one
+            continue
+        except Exception:
+            # Some other error occurred, skip this mode
+            continue
+    
+    # No suitable render mode found
+    return None
+
+
 class GymService:
     """Service layer for gym environment operations.
 
     This class encapsulates all gym operations and provides a unified interface
-    that can be used by different protocol implementations (MCP, HTTP, gRPC).
+    that can be used by different protocol implementations (MCP, HTTP).
     """
 
     def __init__(
         self,
         env_id: str,
         render_mode: Optional[str] = None,
-        enable_run_manager: bool = True,
-        num_episodes: int = 10,
-        max_steps_per_episode: int = 1000,
     ):
         """Initialize the gym service.
 
         Args:
             env_id: The Gymnasium environment ID
-            render_mode: Optional render mode for the environment
-            enable_run_manager: Whether to enable run manager for lifecycle tracking
-            num_episodes: Number of episodes in a run (used if run manager enabled)
-            max_steps_per_episode: Maximum steps per episode
-                (used if run manager enabled)
+            render_mode: Optional render mode for the environment.
+                        If None, will attempt to auto-enable a suitable render mode.
         """
         self.env_id = env_id
-        self.render_mode = render_mode
+        self._has_been_reset = False
 
         # Initialize the Gymnasium environment
         logger.info(f"Initializing environment: {env_id}")
+        
+        # If render_mode is not provided, try to auto-enable rendering
+        if render_mode is None:
+            render_mode = _auto_detect_render_mode(env_id)
+            if render_mode:
+                logger.info(f"Auto-enabled render mode: {render_mode}")
+        
+        self.render_mode = render_mode
         if render_mode is not None:
             self.env = gym.make(env_id, render_mode=render_mode)
         else:
             self.env = gym.make(env_id)
         logger.info(f"Successfully initialized environment: {env_id}")
-
-        # Initialize run manager if enabled
-        self.run_manager: Optional["BasicRunManager"] = None
-        if enable_run_manager:
-            from .run_manager import BasicRunManager
-
-            self.run_manager = BasicRunManager(
-                gym_service=self,
-                num_episodes=num_episodes,
-                max_steps_per_episode=max_steps_per_episode,
-            )
-            # Don't auto-start - wait for explicit start_run() call from client
 
     def reset(self, seed: Optional[int] = None) -> Dict[str, Any]:
         """Reset the environment to its initial state.
@@ -86,45 +105,13 @@ class GymService:
             else:
                 obs, info = self.env.reset()
 
-            result = {
+            self._has_been_reset = True
+            return {
                 "observation": serialize_observation(obs),
-                "info": info,
+                "info": serialize_observation(info),
                 "done": False,
                 "success": True,
             }
-
-            # Notify run manager of episode start
-            if self.run_manager:
-                try:
-                    episode_info = self.run_manager.start_episode(seed=seed)
-                    result["run_progress"] = {
-                        "episode_num": episode_info["episode_num"],
-                        "total_episodes": episode_info["total_episodes"],
-                        "max_steps": episode_info["max_steps"],
-                    }
-                except RuntimeError as e:
-                    # If run manager is enabled, enforce that start_run() was called
-                    error_msg = str(e)
-                    if "Cannot start episode" in error_msg:
-                        logger.error(
-                            f"Run manager error: {error_msg}. "
-                            "Call start_run() before reset() to begin "
-                            "tracking episodes."
-                        )
-                        return {
-                            "observation": None,
-                            "info": {},
-                            "done": True,
-                            "success": False,
-                            "error": (
-                                f"Run not started. Call start_run() first: "
-                                f"{error_msg}"
-                            ),
-                        }
-                    else:
-                        logger.warning(f"Run manager error: {e}")
-
-            return result
         except Exception as e:
             logger.error(f"Error resetting environment: {e}")
             return {
@@ -250,61 +237,15 @@ class GymService:
 
             obs, reward, done, truncated, info = self.env.step(act)
 
-            result = {
+            return {
                 "observation": serialize_observation(obs),
                 "reward": float(reward),
                 "done": bool(done or truncated),
                 "terminated": bool(done),
                 "truncated": bool(truncated),
-                "info": info,
+                "info": serialize_observation(info),
                 "success": True,
             }
-
-            # Record step in run manager
-            if self.run_manager:
-                try:
-                    step_info = self.run_manager.record_step(
-                        action=action,
-                        observation=result.get("observation"),
-                        reward=result.get("reward", 0.0),
-                        done=result.get("done", False),
-                        truncated=result.get("truncated", False),
-                        info=result.get("info", {}),
-                    )
-                    # Add run progress to result
-                    if step_info:
-                        result["run_progress"] = step_info.get("run_progress", {})
-                except RuntimeError as e:
-                    # If run manager is enabled, enforce that start_run() was called
-                    error_msg = str(e)
-                    if (
-                        "Cannot record step" in error_msg
-                        or "no active episode" in error_msg
-                    ):
-                        logger.warning(
-                            f"Run manager error: {error_msg}. "
-                            "Call start_run() and reset() before step() "
-                            "to begin tracking."
-                        )
-                        # Don't fail the step, just log the warning
-                        # The step itself succeeded, we just couldn't track it
-                    else:
-                        logger.warning(f"Run manager error: {e}")
-                except AttributeError as e:
-                    # Handle case where current_episode_stats is None
-                    error_msg = str(e)
-                    if "total_steps" in error_msg or "no attribute" in error_msg:
-                        logger.warning(
-                            f"Run manager error: {error_msg}. "
-                            "No active episode to record step. "
-                            "This may happen if an episode completed and "
-                            "a new one hasn't been started yet."
-                        )
-                        # Don't fail the step, just log the warning
-                    else:
-                        logger.warning(f"Run manager error: {e}")
-
-            return result
         except Exception as e:
             logger.error(f"Error taking step: {e}")
             return {
@@ -321,22 +262,34 @@ class GymService:
         """Render the current state of the environment.
 
         Args:
-            mode: Render mode (e.g., rgb_array, human)
+            mode: Render mode (e.g., rgb_array, human). If None, uses the mode
+                  set during initialization.
 
         Returns:
             Dictionary with render output, mode, type, shape, and success status
         """
-        logger.info(f"Rendering environment with mode={mode}")
+        # Use provided mode, or fall back to the render_mode set during init
+        render_mode = mode or self.render_mode
+        logger.info(f"Rendering environment with mode={render_mode}")
         try:
+            # Ensure environment has been reset before rendering
+            if not self._has_been_reset:
+                logger.info("Environment not reset yet, auto-resetting before render")
+                self.env.reset()
+                self._has_been_reset = True
+
+            # If environment was created with a render_mode, it will use that automatically
+            # when render() is called without arguments
             render_out: Any = self.env.render()
-            result = serialize_render_output(render_out, mode or self.render_mode)
+            
+            result = serialize_render_output(render_out, render_mode)
             result["success"] = True
             return result
         except Exception as e:
             logger.error(f"Error rendering environment: {e}")
             return {
                 "render": None,
-                "mode": mode or self.render_mode,
+                "mode": render_mode,
                 "type": "error",
                 "success": False,
                 "error": str(e),

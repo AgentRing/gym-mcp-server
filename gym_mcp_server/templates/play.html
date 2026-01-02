@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play {{ env_id }} - Gym MCP Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        
+        .status-badge.error {
+            background: #ef4444;
+        }
+        
+        .episode-banner {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .episode-banner h2 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        
+        .episode-banner .stats-grid {
+            margin-bottom: 0;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .render-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .render-image {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .observation-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 500px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .observation-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .observation-container::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 4px;
+        }
+        
+        .observation-container::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 4px;
+        }
+        
+        .observation-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .stat-value.reward {
+            color: #10b981;
+        }
+        
+        .stat-value.done {
+            color: #ef4444;
+        }
+        
+        .controls-section {
+            margin-bottom: 20px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .action-btn {
+            padding: 15px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        
+        .action-input-group {
+            margin-bottom: 15px;
+        }
+        
+        .action-input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .action-input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        }
+        
+        .action-input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .reset-seed-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .info-text {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🎮 Play {{ env_id }}</h1>
+                <div class="info-text" style="margin-top: 5px;">
+                    Interactive Gymnasium Environment
+                </div>
+            </div>
+            <span id="statusBadge" class="status-badge">Ready</span>
+        </div>
+        
+        <div class="episode-banner">
+            <h2>Episode Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Total Reward</div>
+                    <div id="totalReward" class="stat-value reward">0.0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Steps</div>
+                    <div id="stepCount" class="stat-value">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Done</div>
+                    <div id="doneStatus" class="stat-value">No</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Episode</div>
+                    <div id="episodeCount" class="stat-value">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div>
+                <div class="card">
+                    <h2>Controls</h2>
+                    <div class="controls-section">
+                        <div class="button-group">
+                            <button id="resetBtn" class="btn btn-primary">Reset</button>
+                            <button id="renderBtn" class="btn btn-secondary">Render</button>
+                            <input type="number" id="seedInput" class="reset-seed-input" placeholder="Seed (optional)" />
+                        </div>
+                    </div>
+                    
+                    <div id="actionControls"></div>
+                    
+                    <div id="actionInputContainer" class="hidden">
+                        <div class="action-input-group">
+                            <label for="actionInput">Action (JSON array for Box/MultiDiscrete):</label>
+                            <input type="text" id="actionInput" placeholder='e.g., [0.5, -0.3]' />
+                        </div>
+                        <button id="stepBtn" class="btn btn-success" style="width: 100%;">Take Step</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="card">
+                    <h2>Environment View</h2>
+                    <div id="renderContainer" class="render-container">
+                        <div class="loading">Click "Reset" to start playing</div>
+                    </div>
+                    <div id="errorMessage" class="error-message hidden"></div>
+                </div>
+                
+                <div class="card">
+                    <h2>Observation</h2>
+                    <div id="observationContainer" class="observation-container">
+                        No observation yet. Click "Reset" to start.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = '{{ base_url }}';
+        let envInfo = null;
+        let currentObservation = null;
+        let totalReward = 0;
+        let stepCount = 0;
+        let episodeCount = 0;
+        let isDone = false;
+
+        // Load environment info on page load
+        async function loadEnvInfo() {
+            try {
+                const response = await fetch(`${BASE_URL}/info`);
+                const data = await response.json();
+                if (data.success) {
+                    envInfo = data.env_info;
+                    setupActionControls();
+                } else {
+                    showError('Failed to load environment info');
+                }
+            } catch (error) {
+                showError(`Error loading environment info: ${error.message}`);
+            }
+        }
+
+        function setupActionControls() {
+            const actionControls = document.getElementById('actionControls');
+            const actionInputContainer = document.getElementById('actionInputContainer');
+            
+            if (!envInfo) return;
+
+            const actionSpace = envInfo.action_space || '';
+            const actionSpaceSize = envInfo.action_space_size;
+            const actionSpaceShape = envInfo.action_space_shape;
+
+            actionControls.innerHTML = '';
+
+            // Add "Actions:" header and Sample Action button
+            const header = document.createElement('h3');
+            header.style.marginBottom = '10px';
+            header.style.fontSize = '1.1em';
+            header.style.color = '#667eea';
+            header.textContent = 'Actions:';
+            actionControls.appendChild(header);
+
+            // Add Sample Action button
+            const sampleBtnContainer = document.createElement('div');
+            sampleBtnContainer.style.marginBottom = '15px';
+            const sampleBtn = document.createElement('button');
+            sampleBtn.id = 'sampleBtn';
+            sampleBtn.className = 'btn btn-secondary';
+            sampleBtn.textContent = 'Sample Action';
+            sampleBtn.addEventListener('click', sampleAction);
+            sampleBtnContainer.appendChild(sampleBtn);
+            actionControls.appendChild(sampleBtnContainer);
+
+            // Discrete action space
+            if (actionSpaceSize !== undefined) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'action-buttons';
+                
+                for (let i = 0; i < actionSpaceSize; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-primary action-btn';
+                    btn.textContent = i;
+                    btn.onclick = () => takeStep(i);
+                    buttonContainer.appendChild(btn);
+                }
+                
+                actionControls.appendChild(buttonContainer);
+                actionInputContainer.classList.add('hidden');
+            }
+            // Box or MultiDiscrete action space
+            else if (actionSpaceShape) {
+                actionInputContainer.classList.remove('hidden');
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'info-text';
+                infoDiv.innerHTML = `Action space: ${actionSpace}<br>Shape: [${actionSpaceShape.join(', ')}]`;
+                actionControls.appendChild(infoDiv);
+            }
+            // Unknown/other action space
+            else {
+                actionInputContainer.classList.remove('hidden');
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'info-text';
+                infoDiv.textContent = `Action space: ${actionSpace}`;
+                actionControls.appendChild(infoDiv);
+            }
+        }
+
+        async function reset(seed = null) {
+            try {
+                showError('');
+                const payload = seed !== null && seed !== '' ? { seed: parseInt(seed) } : {};
+                const response = await fetch(`${BASE_URL}/reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentObservation = data.observation;
+                    totalReward = 0;
+                    stepCount = 0;
+                    isDone = false;
+                    episodeCount++;
+                    updateUI();
+                    await render();
+                } else {
+                    showError(data.error || 'Failed to reset environment');
+                }
+            } catch (error) {
+                showError(`Error resetting: ${error.message}`);
+            }
+        }
+
+        async function takeStep(action) {
+            if (isDone) {
+                showError('Episode is done. Please reset the environment.');
+                return;
+            }
+
+            try {
+                showError('');
+                
+                // Parse action if it's a string (for Box/MultiDiscrete)
+                let parsedAction = action;
+                if (typeof action === 'string') {
+                    try {
+                        parsedAction = JSON.parse(action);
+                    } catch (e) {
+                        // If JSON parsing fails, try as a single number
+                        parsedAction = parseFloat(action);
+                        if (isNaN(parsedAction)) {
+                            throw new Error('Invalid action format. Use JSON array for arrays, or number for scalar.');
+                        }
+                    }
+                }
+
+                const response = await fetch(`${BASE_URL}/step`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: parsedAction })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentObservation = data.observation;
+                    totalReward += data.reward;
+                    stepCount++;
+                    isDone = data.done;
+                    updateUI();
+                    await render();
+                } else {
+                    showError(data.error || 'Failed to take step');
+                }
+            } catch (error) {
+                showError(`Error taking step: ${error.message}`);
+            }
+        }
+
+        async function render() {
+            try {
+                const response = await fetch(`${BASE_URL}/render`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                const renderContainer = document.getElementById('renderContainer');
+                
+                if (data.success && data.render) {
+                    if (data.type === 'image_base64') {
+                        renderContainer.innerHTML = `<img src="data:image/png;base64,${data.render}" class="render-image" alt="Environment render" />`;
+                    } else if (data.type === 'text') {
+                        renderContainer.innerHTML = `<div class="observation-container">${data.render}</div>`;
+                    } else {
+                        renderContainer.innerHTML = `<div class="observation-container">${JSON.stringify(data.render, null, 2)}</div>`;
+                    }
+                } else {
+                    renderContainer.innerHTML = '<div class="info-text">Rendering not available</div>';
+                }
+            } catch (error) {
+                console.error('Render error:', error);
+            }
+        }
+
+        async function sampleAction() {
+            try {
+                const response = await fetch(`${BASE_URL}/sample`);
+                const data = await response.json();
+                if (data.success) {
+                    const actionInputContainer = document.getElementById('actionInputContainer');
+                    const actionInput = document.getElementById('actionInput');
+                    
+                    // If action input container is visible (Box/MultiDiscrete), populate the input
+                    if (actionInputContainer && !actionInputContainer.classList.contains('hidden')) {
+                        if (actionInput) {
+                            actionInput.value = JSON.stringify(data.action);
+                        }
+                    } else {
+                        // For discrete actions, take the step directly
+                        takeStep(data.action);
+                    }
+                } else {
+                    showError(data.error || 'Failed to sample action');
+                }
+            } catch (error) {
+                showError(`Error sampling action: ${error.message}`);
+            }
+        }
+
+        function formatObservation(obs) {
+            if (obs === null || obs === undefined) {
+                return 'null';
+            }
+            
+            try {
+                // Use JSON.stringify with proper formatting
+                // This handles all types: arrays, objects, primitives, nested structures
+                const formatted = JSON.stringify(obs, null, 2);
+                
+                // For very long outputs, add a header with size info
+                if (formatted.length > 10000) {
+                    const type = Array.isArray(obs) ? 'Array' : (typeof obs === 'object' ? 'Object' : typeof obs);
+                    const size = Array.isArray(obs) ? obs.length : (typeof obs === 'object' ? Object.keys(obs).length : 'N/A');
+                    return `[${type}${Array.isArray(obs) || typeof obs === 'object' ? ` (${size} items)` : ''} - ${formatted.length} chars]\n\n${formatted}`;
+                }
+                
+                return formatted;
+            } catch (e) {
+                // Fallback for circular references or other issues
+                return String(obs);
+            }
+        }
+
+        function updateUI() {
+            // Update observation
+            const obsContainer = document.getElementById('observationContainer');
+            if (currentObservation !== null) {
+                try {
+                    // Try to format nicely, fallback to JSON.stringify
+                    const formatted = formatObservation(currentObservation);
+                    obsContainer.textContent = formatted;
+                    // Scroll to top to show the beginning of the observation
+                    obsContainer.scrollTop = 0;
+                } catch (e) {
+                    // Fallback to JSON.stringify if formatting fails
+                    obsContainer.textContent = JSON.stringify(currentObservation, null, 2);
+                    obsContainer.scrollTop = 0;
+                }
+            } else {
+                obsContainer.textContent = 'No observation yet. Click "Reset" to start.';
+            }
+
+            // Update stats
+            document.getElementById('totalReward').textContent = totalReward.toFixed(2);
+            document.getElementById('stepCount').textContent = stepCount;
+            document.getElementById('doneStatus').textContent = isDone ? 'Yes' : 'No';
+            document.getElementById('doneStatus').className = isDone ? 'stat-value done' : 'stat-value';
+            document.getElementById('episodeCount').textContent = episodeCount;
+
+            // Update status badge
+            const statusBadge = document.getElementById('statusBadge');
+            if (isDone) {
+                statusBadge.textContent = 'Episode Done';
+                statusBadge.classList.add('error');
+            } else {
+                statusBadge.textContent = 'Playing';
+                statusBadge.classList.remove('error');
+            }
+
+            // Update button states
+            const actionButtons = document.querySelectorAll('.action-btn');
+            actionButtons.forEach(btn => {
+                btn.disabled = isDone;
+            });
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            if (message) {
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
+            } else {
+                errorDiv.classList.add('hidden');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            const seed = document.getElementById('seedInput').value;
+            reset(seed);
+        });
+
+        document.getElementById('renderBtn').addEventListener('click', render);
+
+        document.getElementById('stepBtn').addEventListener('click', () => {
+            const actionInput = document.getElementById('actionInput');
+            takeStep(actionInput.value);
+        });
+
+        // Allow Enter key in action input
+        document.getElementById('actionInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('stepBtn').click();
+            }
+        });
+
+        // Initialize
+        loadEnvInfo();
+    </script>
+</body>
+</html>
+

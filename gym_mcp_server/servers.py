@@ -81,9 +81,6 @@ def create_app(
     description: Optional[str] = None,
     host: Optional[str] = None,
     port: Optional[int] = None,
-    enable_run_manager: bool = True,
-    num_episodes: int = 10,
-    max_steps_per_episode: int = 1000,
 ) -> FastAPI:
     """Create a FastAPI application for the gym environment.
 
@@ -119,9 +116,6 @@ def create_app(
     service = GymService(
         env_id=env_id,
         render_mode=render_mode,
-        enable_run_manager=enable_run_manager,
-        num_episodes=num_episodes,
-        max_steps_per_episode=max_steps_per_episode,
     )
     # Store service in app state for access in endpoints and startup
     app.state.service = service
@@ -159,9 +153,6 @@ class GymHTTPServer:
         render_mode: Optional[str] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
-        enable_run_manager: bool = True,
-        num_episodes: int = 10,
-        max_steps_per_episode: int = 1000,
     ):
         """Initialize the HTTP server.
 
@@ -170,10 +161,6 @@ class GymHTTPServer:
             render_mode: Optional render mode for the environment
             title: Optional title for the Swagger UI
             description: Optional description for the Swagger UI
-            enable_run_manager: Whether to enable run manager for lifecycle tracking
-            num_episodes: Number of episodes in a run (used if run manager enabled)
-            max_steps_per_episode: Maximum steps per episode
-                (used if run manager enabled)
         """
         self.env_id = env_id
         self.render_mode = render_mode
@@ -187,9 +174,6 @@ class GymHTTPServer:
             description=description,
             host=None,
             port=None,
-            enable_run_manager=enable_run_manager,
-            num_episodes=num_episodes,
-            max_steps_per_episode=max_steps_per_episode,
         )
 
     def run(self, host: str = "localhost", port: int = 8000) -> None:

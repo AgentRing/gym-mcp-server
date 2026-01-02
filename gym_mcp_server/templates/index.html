@@ -58,6 +58,26 @@
             font-weight: 500;
         }
         
+        .play-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9em;
+            margin-top: 15px;
+            margin-left: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .play-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(16, 185, 129, 0.4);
+        }
+        
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -203,6 +223,7 @@
             <h1>🎮 Gym MCP Server</h1>
             <p class="subtitle">Model Context Protocol Server for Gymnasium Environments</p>
             <span class="status-badge">✓ Running</span>
+            <a href="/play" class="play-button">▶️ Play Environment</a>
         </div>
         
         <div class="info-grid">
@@ -288,6 +309,7 @@
         
         <div class="links-section">
             <h2>📚 Documentation & Quick Links</h2>
+            <a href="/play" class="link-button" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">🎮 Play Environment</a>
             <a href="/docs" class="link-button">Swagger UI</a>
             <a href="/redoc" class="link-button">ReDoc</a>
             <a href="/openapi.json" class="link-button">OpenAPI Schema</a>
