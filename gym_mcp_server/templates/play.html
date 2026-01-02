@@ -607,9 +607,14 @@
                 return 'null';
             }
             
+            // For strings, display directly to preserve newlines and formatting
+            if (typeof obs === 'string') {
+                return obs;
+            }
+            
             try {
-                // Use JSON.stringify with proper formatting
-                // This handles all types: arrays, objects, primitives, nested structures
+                // Use JSON.stringify with proper formatting for other types
+                // This handles arrays, objects, primitives, nested structures
                 const formatted = JSON.stringify(obs, null, 2);
                 
                 // For very long outputs, add a header with size info
