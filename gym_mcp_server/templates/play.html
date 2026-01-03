@@ -422,6 +422,9 @@
             const actionSpace = envInfo.action_space || '';
             const actionSpaceSize = envInfo.action_space_size;
             const actionSpaceShape = envInfo.action_space_shape;
+            
+            // Detect if action space is Text type
+            const isTextActionSpace = actionSpace.includes('Text(') || actionSpace.startsWith('Text');
 
             actionControls.innerHTML = '';
 
@@ -460,13 +463,37 @@
                 actionControls.appendChild(buttonContainer);
                 actionInputContainer.classList.add('hidden');
             }
+            // Text action space
+            else if (isTextActionSpace) {
+                actionInputContainer.classList.remove('hidden');
+                const label = actionInputContainer.querySelector('label');
+                if (label) {
+                    label.textContent = 'Action (text command):';
+                }
+                const input = actionInputContainer.querySelector('input');
+                if (input) {
+                    input.placeholder = 'e.g., look, go east, take key';
+                }
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'info-text';
+                infoDiv.textContent = `Action space: ${actionSpace}`;
+                actionControls.appendChild(infoDiv);
+                // Store action space type for takeStep function
+                window.isTextActionSpace = true;
+            }
             // Box or MultiDiscrete action space
             else if (actionSpaceShape) {
                 actionInputContainer.classList.remove('hidden');
+                const label = actionInputContainer.querySelector('label');
+                if (label) {
+                    label.textContent = 'Action (JSON array for Box/MultiDiscrete):';
+                }
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'info-text';
                 infoDiv.innerHTML = `Action space: ${actionSpace}<br>Shape: [${actionSpaceShape.join(', ')}]`;
                 actionControls.appendChild(infoDiv);
+                // Store action space type for takeStep function
+                window.isTextActionSpace = false;
             }
             // Unknown/other action space
             else {
@@ -475,6 +502,8 @@
                 infoDiv.className = 'info-text';
                 infoDiv.textContent = `Action space: ${actionSpace}`;
                 actionControls.appendChild(infoDiv);
+                // Store action space type for takeStep function (default to false, try parsing)
+                window.isTextActionSpace = false;
             }
         }
 
@@ -517,13 +546,19 @@
                 // Parse action if it's a string (for Box/MultiDiscrete)
                 let parsedAction = action;
                 if (typeof action === 'string') {
-                    try {
-                        parsedAction = JSON.parse(action);
-                    } catch (e) {
-                        // If JSON parsing fails, try as a single number
-                        parsedAction = parseFloat(action);
-                        if (isNaN(parsedAction)) {
-                            throw new Error('Invalid action format. Use JSON array for arrays, or number for scalar.');
+                    // For Text action spaces, use the string as-is without parsing
+                    if (window.isTextActionSpace) {
+                        parsedAction = action;
+                    } else {
+                        // For Box/MultiDiscrete, try to parse as JSON or number
+                        try {
+                            parsedAction = JSON.parse(action);
+                        } catch (e) {
+                            // If JSON parsing fails, try as a single number
+                            parsedAction = parseFloat(action);
+                            if (isNaN(parsedAction)) {
+                                throw new Error('Invalid action format. Use JSON array for arrays, or number for scalar.');
+                            }
                         }
                     }
                 }
@@ -585,10 +620,15 @@
                     const actionInputContainer = document.getElementById('actionInputContainer');
                     const actionInput = document.getElementById('actionInput');
                     
-                    // If action input container is visible (Box/MultiDiscrete), populate the input
+                    // If action input container is visible (Box/MultiDiscrete/Text), populate the input
                     if (actionInputContainer && !actionInputContainer.classList.contains('hidden')) {
                         if (actionInput) {
-                            actionInput.value = JSON.stringify(data.action);
+                            // For Text action spaces, use the string directly; for others, stringify
+                            if (window.isTextActionSpace) {
+                                actionInput.value = typeof data.action === 'string' ? data.action : String(data.action);
+                            } else {
+                                actionInput.value = JSON.stringify(data.action);
+                            }
                         }
                     } else {
                         // For discrete actions, take the step directly
