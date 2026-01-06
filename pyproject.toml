@@ -34,10 +34,10 @@ dependencies = [
     "pillow>=8.0.0",
     "fastapi-mcp>=0.1.0",
     "pygame>=2.0.0",
-    "fastapi>=0.110,<0.112",
+    "fastapi>=0.110",
     "uvicorn>=0.32.0",
     "jinja2>=3.0.0",
-    "pydantic>=2.7,<2.11",
+    "pydantic>=2.7",
 ]
 
 [project.optional-dependencies]

@@ -22,35 +22,6 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def _auto_detect_render_mode(env_id: str) -> Optional[str]:
-    """Try to automatically detect and enable a suitable render mode.
-    
-    Args:
-        env_id: The Gymnasium environment ID
-        
-    Returns:
-        A suitable render mode if available, None otherwise
-    """
-    # Common render modes to try in order of preference
-    render_modes_to_try = ["rgb_array", "ansi", "human"]
-    
-    for mode in render_modes_to_try:
-        try:
-            # Try to create the environment with this render mode
-            test_env = gym.make(env_id, render_mode=mode)
-            test_env.close()
-            return mode
-        except (ValueError, TypeError, AttributeError):
-            # This render mode is not supported, try the next one
-            continue
-        except Exception:
-            # Some other error occurred, skip this mode
-            continue
-    
-    # No suitable render mode found
-    return None
-
-
 class GymService:
     """Service layer for gym environment operations.
 
@@ -62,31 +33,27 @@ class GymService:
         self,
         env_id: str,
         render_mode: Optional[str] = None,
+        env_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """Initialize the gym service.
 
         Args:
             env_id: The Gymnasium environment ID
             render_mode: Optional render mode for the environment.
-                        If None, will attempt to auto-enable a suitable render mode.
+            env_kwargs: Optional dictionary of keyword arguments to pass to gym.make().
         """
         self.env_id = env_id
         self._has_been_reset = False
 
         # Initialize the Gymnasium environment
         logger.info(f"Initializing environment: {env_id}")
-        
-        # If render_mode is not provided, try to auto-enable rendering
-        if render_mode is None:
-            render_mode = _auto_detect_render_mode(env_id)
-            if render_mode:
-                logger.info(f"Auto-enabled render mode: {render_mode}")
-        
+
         self.render_mode = render_mode
+        kwargs = env_kwargs or {}
         if render_mode is not None:
-            self.env = gym.make(env_id, render_mode=render_mode)
+            self.env = gym.make(env_id, render_mode=render_mode, **kwargs)
         else:
-            self.env = gym.make(env_id)
+            self.env = gym.make(env_id, **kwargs)
         logger.info(f"Successfully initialized environment: {env_id}")
 
     def reset(self, seed: Optional[int] = None) -> Dict[str, Any]:
@@ -278,10 +245,10 @@ class GymService:
                 self.env.reset()
                 self._has_been_reset = True
 
-            # If environment was created with a render_mode, it will use that automatically
-            # when render() is called without arguments
+            # If environment was created with a render_mode, it will use that
+            # automatically when render() is called without arguments
             render_out: Any = self.env.render()
-            
+
             result = serialize_render_output(render_out, render_mode)
             result["success"] = True
             return result

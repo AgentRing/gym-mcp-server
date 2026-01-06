@@ -44,9 +44,7 @@ def _generate_index_html(
     )
 
 
-def _generate_play_html(
-    env_id: str, base_url: str
-) -> str:
+def _generate_play_html(env_id: str, base_url: str) -> str:
     """Generate HTML for the play page.
 
     Args:

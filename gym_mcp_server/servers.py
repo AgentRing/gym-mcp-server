@@ -7,7 +7,7 @@ This module provides FastAPI-based REST endpoints for the GymService.
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from fastapi import FastAPI
 from fastapi_mcp import FastApiMCP
@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app(
     env_id: str,
     render_mode: Optional[str] = None,
+    env_kwargs: Optional[Dict[str, Any]] = None,
     title: Optional[str] = None,
     description: Optional[str] = None,
     host: Optional[str] = None,
@@ -87,6 +88,7 @@ def create_app(
     Args:
         env_id: The Gymnasium environment ID
         render_mode: Optional render mode for the environment
+        env_kwargs: Optional dictionary of keyword arguments to pass to gym.make()
         title: Optional title for the Swagger UI
         description: Optional description for the Swagger UI
         host: Server host (for banner display)
@@ -116,6 +118,7 @@ def create_app(
     service = GymService(
         env_id=env_id,
         render_mode=render_mode,
+        env_kwargs=env_kwargs,
     )
     # Store service in app state for access in endpoints and startup
     app.state.service = service
@@ -151,6 +154,7 @@ class GymHTTPServer:
         self,
         env_id: str,
         render_mode: Optional[str] = None,
+        env_kwargs: Optional[Dict[str, Any]] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
     ):
@@ -159,6 +163,7 @@ class GymHTTPServer:
         Args:
             env_id: The Gymnasium environment ID
             render_mode: Optional render mode for the environment
+            env_kwargs: Optional dictionary of keyword arguments to pass to gym.make()
             title: Optional title for the Swagger UI
             description: Optional description for the Swagger UI
         """
@@ -170,6 +175,7 @@ class GymHTTPServer:
         self.app = create_app(
             env_id=env_id,
             render_mode=render_mode,
+            env_kwargs=env_kwargs,
             title=title,
             description=description,
             host=None,
