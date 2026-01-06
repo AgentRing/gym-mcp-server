@@ -13,10 +13,12 @@ from .servers import (
     create_app,
 )
 from .service import GymService
+from .server import GymMCPServer
 
 __version__ = "0.3.0"
 __all__ = [
     "GymHTTPServer",
     "GymService",
+    "GymMCPServer",
     "create_app",
 ]
